@@ -1,0 +1,83 @@
+Start ssh-agent: eval `ssh-agent -s` && ssh-add C:/Users/nflynn/ssh/id_rsa
+
+Clear all changes:
+git reset --hard
+
+Delete all untracked files:
+git clean -fdx
+	* Add -n to see what would be deleted.
+
+
+Get changes from master and pull into branch:
+git pull origin master
+
+
+New local branch:
+git checkout -b <branch-name>
+
+
+Revert previous local commit:
+git reset --soft HEAD^
+git reset --soft HEAD~2 (for last 2 local commits)
+
+Revert to previous pushed commit:
+git revert --no-commit [commit ID]..HEAD
+
+Revert pushed commit:
+git revert <commit ID>
+
+
+Rollback changes to file:
+git restore /path/to/file
+
+
+Edit commit before push:
+git commit --amend
+
+
+Apply changes from commit:
+git cherry-pick <commit sha>
+
+
+Rename local branch:
+git branch -m new-name
+
+Rename remote: 
+https://www.w3docs.com/snippets/git/how-to-rename-git-local-and-remote-branches.html 
+
+
+Merge Conflicts on branch: (note: need to push your branch to remote first)
+git pull origin master
+-- resolve merge conflicts ---
+git commit
+git push origin HEAD
+
+git merge master (from feature branch)
+
+
+Stop merge:
+git merge --abort
+
+
+Delete fix branches:
+git branch | grep "fix/" | xargs git branch -d
+
+
+Edit commit messages, pushed commit:
+https://stackoverflow.com/a/41987851
+
+
+git rebase -X theirs master
+
+Rerere:
+git config --global rerere.enabled true
+https://medium.com/@porteneuve/fix-conflicts-only-once-with-git-rerere-7d116b2cec67
+
+
+Delete all local branches except master:
+git branch | grep -v "master" | xargs git branch -D 
+
+
+
+Filenames too long:
+git config core.longpaths true
