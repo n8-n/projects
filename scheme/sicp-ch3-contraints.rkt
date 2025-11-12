@@ -185,7 +185,61 @@
     (constant 32 y)
     'ok))
 
-(probe "Celsius temp" C)
-(probe "Fahrenheit temp" F)
+;;(probe "Celsius temp" C)
+;(probe "Fahrenheit temp" F)
 
-(celsius-fahrenheit-converter C F)
+;(celsius-fahrenheit-converter C F)
+
+;; Exercise 3.33
+(define (averager a b c)
+  (let ((x (make-connector))
+        (y (make-connector)))
+    (adder a b x)    
+    (multiplier x y c)
+    (constant 1/2 y)
+    'ok))
+
+
+;; (define a (make-connector))
+;; (define b (make-connector))
+;; (define c (make-connector))
+;; (probe "Average" c)
+
+;; (averager a b c)
+
+
+;; Exercise 3.37
+(define (c+ x y)
+  (let ((z (make-connector)))
+    (adder x y z)
+    z))
+
+(define (c* x y)
+  (let ((z (make-connector)))
+    (multiplier x y z)
+    z))
+
+(define (cv v)
+  (let ((z (make-connector)))
+    (constant v z)
+    z))
+
+(define (c- x y)
+  (let ((z (make-connector)))
+    (adder y z x)
+    z))
+
+(define (c/ x y)
+  (let ((z (make-connector)))
+    (multiplier y z x)
+    z))
+
+(define (c-f-converter x)
+  (c+ (c* (c/ (cv 9) (cv 5))
+          x)
+      (cv 32)))
+
+(define C1 (make-connector))
+(define F1 (c-f-converter C1))
+(probe "Fahrenheit" F1)
+(probe "Celcius" C1)
