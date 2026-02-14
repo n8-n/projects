@@ -377,3 +377,37 @@
   (let ((filtered-ints (stream-filter filter-fn integers)))
     (weighted-pairs filtered-ints filtered-ints sum-fn)))
                   
+
+
+
+;; Exercise 3.74
+(define (random-data-stream maximum)
+  (let ((rand-num (random maximum))
+        (is-negative (random 2)))
+    (let ((num (if (= is-negative 1)
+                   (* rand-num -1)
+                   rand-num)))
+      (cons-stream num (random-data-stream maximum)))))
+
+(define sense-data (random-data-stream 4.0))
+
+(define (sign-change-detector new-value old-value)
+  (define (sign num) (if (< num 0) '- '+))
+  (let ((old-sign (sign old-value))
+        (new-sign (sign new-value)))
+    (cond ((eq? old-sign new-sign) 0)
+          ((and (eq? old-sign '-)
+                (eq? new-sign '+)) 1)
+          (else -1))))
+    
+
+(define zero-crossings
+  (stream-map sign-change-detector sense-data (cons-stream 0 sense-data)))
+
+
+
+
+;; exercise 3.76
+(define (smooth s)
+  (let ((smoothed (/ (+ (stream-car s) (stream-ref s 1)) 2)))
+    (cons-stream smoothed (smooth (stream-cdr s)))))

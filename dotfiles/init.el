@@ -16,7 +16,6 @@
 
 (add-to-list 'package-selected-packages 'ef-themes)
 (add-to-list 'package-selected-packages 'doom-themes)
-(load-theme 'doom-henna)
 
 (add-to-list 'package-selected-packages 'racket-mode)
 ;;(setq exec-path (append exec-path '("/usr/racket/bin/")))
@@ -46,6 +45,9 @@
 
 
 (package-install-selected-packages :noconfirm)
+
+(load-theme 'ef-autumn)
+
 
 
 ;; Disable the compose-mail keybind
@@ -84,6 +86,17 @@
 (setq inferior-lisp-program "\"c:/Program Files/Steel Bank Common Lisp/sbcl.exe\"")
 
 
+;; Norns
+(add-to-list 'load-path "~/.emacs.d/my-scripts/")
+(load "norns")
+
+(add-hook 'lua-mode-hook #'norns-mode-maybe-activate)
+(add-hook 'sclang-mode-hook #'norns-mode-maybe-activate)
+
+(define-key norns-mode-map (kbd "C-c C-e") 'norns-load-current-script)
+(define-key norns-mode-map (kbd "C-c C-r") 'norns-send-selection)
+
+(setq lua-indent-level 2)
 
 
 
