@@ -168,6 +168,13 @@
         (cdadr exp) ; formal parameters
         (cddr exp)))) ; body
 
+;; if you want functions to be e.g. (define func (x) (* x 10))
+  ;; (if (= (length exp) 3)
+  ;;     (caddr exp)
+  ;;     (make-lambda
+  ;;       (caddr exp)
+  ;;       (cdddr exp))))
+
 (define (lambda? exp)
   (tagged-list? exp 'lambda))
 (define (lambda-parameters exp) (cadr exp))
@@ -253,9 +260,42 @@
 (define (louis-application? exp)
   (tagged-list? 'call exp))
 
+;; TODO fix this scan-out-defines
 (define (make-procedure parameters body env)
-  (list 'procedure parameters body env))
+  (list 'procedure parameters (scan-out-defines body) env))
 
+(define (split-defines seq)
+  (if (null? seq)
+      '()
+      (let ((first (car seq)))
+        (if (definition? first)
+            (cons (list (definition-variable first) (definition-value first))
+                  (split-defines (cdr seq)))
+            (split-defines (cdr seq))))))
+      
+(define (scan-out-defines exp)
+  (define (make-unassigned var) (list var ''*unassigned*))
+  (define (make-set! var body) (list 'set! var body))
+  (define (make-lets-n-sets lets sets pairs)
+    (if (null? pairs)
+        (list lets sets)
+        (let ((first (car pairs)))
+          (let ((var (car first))
+                (value (cadr first)))
+            (make-lets-n-sets (append lets (list (make-unassigned var)))
+                              (append sets (list (make-set! var value)))
+                              (cdr pairs))))))
+  (define (get-body exp)
+    (if (= (length exp) 1)
+        (car exp)
+        (get-body (cdr exp))))
+  (if (= (length exp) 1)
+      exp
+      (let ((lets-sets (make-lets-n-sets '() '() (split-defines exp))))
+        (let ((lets (car lets-sets))
+              (sets (cadr lets-sets)))
+          (list (append (list 'let lets) sets (list (get-body exp))))))))
+                      
 (define (primitive-procedure? proc)
   (tagged-list? proc 'primitive))
 
@@ -312,6 +352,8 @@
 ;;             (else (scan (cdr pairs)))))
 ;;     (scan frame)))
 
+(define (unassigned? value)
+  (eq? value '*unassigned*))
 
 ;; exercise 4.12
 (define (lookup-variable-value var env)
@@ -320,7 +362,11 @@
         (error "Unbound variable!" var)
         (let ((frame (first-frame env))
               (next-env (lambda () (env-loop (enclosing-environment env))))
-              (get-value (lambda (pairs) (var-value (first-var pairs)))))
+              (get-value (lambda (pairs)
+                           (let ((value (var-value (first-var pairs))))
+                             (if (unassigned? value)
+                                 (error "Variable value is *unassigned*")
+                                 value)))))
           (frame-scan frame var next-env get-value))))
   (env-loop env))
 
@@ -577,7 +623,13 @@
                      '<procedure-env>))
       (display object)))
 
+(define t-define '(define (sq x)
+                    (define (inner y) (* y y))
+                    (inner x)))
                 
 (define the-global-environment (setup-environment))
 (install-eval-expressions)
-(driver-loop)
+;;(driver-loop)
+
+
+
