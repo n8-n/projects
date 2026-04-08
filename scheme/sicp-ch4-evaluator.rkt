@@ -57,6 +57,7 @@
   (put 'or eval-or)
   (put 'let eval-let)
   (put 'let* eval-let*)
+  (put 'letrec eval-letrec)
   'done)
 
 
@@ -259,8 +260,6 @@
 ;; exercise 4.2 b
 (define (louis-application? exp)
   (tagged-list? 'call exp))
-
-;; TODO fix this scan-out-defines
 (define (make-procedure parameters body env)
   (list 'procedure parameters (scan-out-defines body) env))
 
@@ -311,6 +310,7 @@
         (list '* *)
         (list '+ +)
         (list '- -)
+        (list '= =)
         (list '/ /)))
 
 (define (apply-primitive-procedure proc args)
@@ -577,6 +577,35 @@
 ;;   '(do (n 10) (display n)))
 
 
+;; Exercise 4.20
+(define (eval-letrec exp env)
+  (my-eval (letrec->let exp) env))
+
+(define (letrec->define exp)
+  (let ((name (car exp))
+        (body (cadr exp)))
+    (list 'define name body)))
+
+(define (letrec-lets exp) (cadr exp))
+(define (letrec-body exp) (caddr exp))
+
+(define (letrec->let exp)
+  (define (to-define-iter lets defines)
+    (if (null? lets)
+        defines
+        (to-define-iter (cdr lets)
+                        (cons (letrec->define (car lets)) defines))))                              
+  (let* ((lets (letrec-lets exp))
+         (as-defines (to-define-iter (reverse lets) '())))
+    (car (scan-out-defines (append as-defines (list (letrec-body exp)))))))
+
+(define letrec-test '(letrec ((fact
+                               (lambda (n)
+                                 (if (= n 1)
+                                     1
+                                     (* n (fact (- n 1)))))))
+                       (fact 10)))
+
 (define (setup-environment)
   (let ((initial-env
          (extend-environment (primitive-procedure-names)
@@ -610,11 +639,13 @@
                      '<procedure-env>))
       (display object)))
 
-(define t-define '(define (sq x)
-                    (define (final y) (y x x))
-                    (define (other z) (final z))
-                    (other *)))
-                
+;; (define t-define '(define (sq x)
+;;                     (define (final y) (y x x))
+;;                     (define (other z) (final z))
+;;                     (other *)))
+
+
 (define the-global-environment (setup-environment))
 (install-eval-expressions)
 ;(driver-loop)
+
