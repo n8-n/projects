@@ -12,7 +12,7 @@
         (set-cdr! record value)
         (set-cdr! table
                   (cons (cons key value) (cdr table)))))
-  'ok)
+  'ok-insert)
 
 (define (make-table)
   (list '*table*))
@@ -120,14 +120,14 @@
     (assignment-variable exp)
     (my-eval (assignment-value exp) env)
     env)
-  'ok)
+  'ok-assign)
 
 (define (eval-definition exp env)
   (define-variable!
     (definition-variable exp)
     (my-eval (definition-value exp) env)
     env)
-  'ok)
+  'ok-define)
 
 
 ;; Expressions
@@ -264,6 +264,7 @@
 (define (make-procedure parameters body env)
   (list 'procedure parameters (scan-out-defines body) env))
 
+;; Exercise 4.16
 (define (split-defines seq)
   (if (null? seq)
       '()
@@ -294,8 +295,11 @@
       (let ((lets-sets (make-lets-n-sets '() '() (split-defines exp))))
         (let ((lets (car lets-sets))
               (sets (cadr lets-sets)))
-          (list (append (list 'let lets) sets (list (get-body exp))))))))
-                      
+          (list (list 'let lets (cons
+                                 'begin
+                                 (append sets (list (get-body exp))))))))))
+
+
 (define (primitive-procedure? proc)
   (tagged-list? proc 'primitive))
 
@@ -307,8 +311,7 @@
         (list '* *)
         (list '+ +)
         (list '- -)
-        (list '/ /)
-        (list 'map map)))
+        (list '/ /)))
 
 (define (apply-primitive-procedure proc args)
   ;; uses underlying scheme apply
@@ -340,17 +343,6 @@
           (error "Too many arguments supplied" vars vals)
           (error "Too few arguments supplied" vars vals))))
 
-;; (define (define-variable! var val env)
-;;   (let ((frame (first-frame env)))
-;;     (define (scan pairs)
-;;       (cond ((null? pairs)
-;;              (add-binding-to-frame! var val frame))
-;;             ((eq? var (var-name (first-var pairs)))
-;;              (begin
-;;                (set-car! pairs (list var val))
-;;                (set-cdr! pairs (cdr pairs))))
-;;             (else (scan (cdr pairs)))))
-;;     (scan frame)))
 
 (define (unassigned? value)
   (eq? value '*unassigned*))
@@ -516,17 +508,17 @@
 
 
 ;;(define test-let '(let* ((x 1) (y (* x 20))) (+ x y)))
-(define test-let
-  '(let* ((x 5)
-          (y (* x 6)) ; 30
-          (z (+ x y))) ; 35
-     (+ x y z))) ; 70
+;; (define test-let
+;;   '(let* ((x 5)
+;;           (y (* x 6)) ; 30
+;;           (z (+ x y))) ; 35
+;;      (+ x y z))) ; 70
 
-(define test-named-let
-  '(let fib-iter ((a 1) (b 0) (count n))
-    (if (= count 0)
-        b
-        (fib-iter (+ a b) a (- count 1)))))
+;; (define test-named-let
+;;   '(let fib-iter ((a 1) (b 0) (count n))
+;;     (if (= count 0)
+;;         b
+;;         (fib-iter (+ a b) a (- count 1)))))
 
 ;; Exercise 4.8
 (define (named-let? exp) (variable? (cadr exp)))
@@ -544,11 +536,6 @@
           (body (named-let-body exp)))
       (sequence->exp (list (make-define name vars body) (cons name exps))))))
 
-
-(define (fib n)
-  (begin
-    (define (fib-iter a b count) (if (= count 0) b (fib-iter (+ a b) a (- count 1))))
-    (fib-iter 1 0 n)))
 
 ;; Exercise 4.9
 ;; (do (n 0) (body))
@@ -624,12 +611,10 @@
       (display object)))
 
 (define t-define '(define (sq x)
-                    (define (inner y) (* y y))
-                    (inner x)))
+                    (define (final y) (y x x))
+                    (define (other z) (final z))
+                    (other *)))
                 
 (define the-global-environment (setup-environment))
 (install-eval-expressions)
-;;(driver-loop)
-
-
-
+;(driver-loop)
