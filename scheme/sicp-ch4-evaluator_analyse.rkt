@@ -1,23 +1,39 @@
 #lang sicp
 
-(define (my-eval exp env)
-  (cond ((self-evaluating? exp) exp)
-        ((variable? exp) (lookup-variable-value exp env))
-        ((quoted? exp) (text-of-quotation exp))
-        ((assignment? exp) (eval-assignment exp env))
-        ((definition? exp) (eval-definition exp env))
-        ((if? exp) (eval-if exp env))
-        ((lambda? exp)
-         (make-procedure (lambda-parameters exp) (lambda-body exp) env))
-        ((begin? exp)
-         (eval-sequence (begin-actions exp) env))
-        ((cond? exp) (my-eval (cond->if exp) env))
-        ((application? exp)
-         (my-apply (my-eval (operator exp) env)
-                   (list-of-values (operands exp) env)))
-        (else
-         (error "Unknown expression type: EVAL" exp))))
+;; (define (my-eval exp env)
+;;   (cond ((self-evaluating? exp) exp)
+;;         ((variable? exp) (lookup-variable-value exp env))
+;;         ((quoted? exp) (text-of-quotation exp))
+;;         ((assignment? exp) (eval-assignment exp env))
+;;         ((definition? exp) (eval-definition exp env))
+;;         ((if? exp) (eval-if exp env))
+;;         ((lambda? exp)
+;;          (make-procedure (lambda-parameters exp) (lambda-body exp) env))
+;;         ((begin? exp)
+;;          (eval-sequence (begin-actions exp) env))
+;;         ((cond? exp) (my-eval (cond->if exp) env))
+;;         ((application? exp)
+;;          (my-apply (my-eval (operator exp) env)
+;;                    (list-of-values (operands exp) env)))
+;;         (else
+;;          (error "Unknown expression type: EVAL" exp))))
 
+(define (my-eval exp env)
+  ((analyse exp) env))
+
+(define (analyse exp)
+  (cond ((self-evaluating? exp) (analyse-self-evaluating exp))
+        ((quoted? exp) (analyse-quoted exp))
+        ((variable? exp) (analyse-variable exp))
+        ((assignment? exp) (analyse-assignment exp))
+        ((definition? exp) (analyse-definition exp))
+        ((if? exp) (analyse-if exp))
+        ((let? exp) (analyse (let->lambda exp)))
+        ((lambda? exp) (analyse-lambda exp))
+        ((begin? exp) (analyse-sequence (begin-actions exp)))
+        ((cond? exp) (analyse (cond->if exp)))
+        ((application? exp) (analyse-application exp))
+        (else (error "Unknown expression type -- ANALYSE" exp))))
 
 (define (my-apply procedure arguments)
   (cond ((primitive-procedure? procedure)
@@ -32,6 +48,85 @@
         (else
          (error "Unknown procedure type: APPLY" procedure))))
 
+
+(define (analyse-self-evaluating exp)
+  (lambda (env) exp))
+
+(define (analyse-quoted exp)
+  (let ((qval (text-of-quotation exp)))
+    (lambda (env) qval)))
+
+(define (analyse-variable exp)
+  (lambda (env) (lookup-variable-value exp env)))
+
+(define (analyse-assignment exp)
+  (let ((var (assignment-variable exp))
+        (vproc (analyse (assignment-value exp))))
+    (lambda (env)
+      (set-variable-value! var (vproc env) env)
+      'ok-assign)))
+
+(define (analyse-definition exp)
+  (let ((var (definition-variable exp))
+        (vproc (analyse (definition-value exp))))
+    (lambda (env)
+      (define-variable! var (vproc env) env)
+      'ok-define)))
+
+(define (analyse-if exp)
+  (let ((pproc (analyse (if-predicate exp)))
+        (cproc (analyse (if-consequent exp)))
+        (aproc (analyse (if-alternative exp))))
+    (lambda (env)
+      (if (true? (pproc env))
+          (cproc env)
+          (aproc env)))))
+
+(define (analyse-lambda exp)
+  (let ((vars (lambda-parameters exp))
+        (bproc (analyse-sequence (lambda-body exp))))
+    (lambda (env) (make-procedure vars bproc env))))
+
+(define (analyse-sequence exps)
+  (define (sequentially proc1 proc2)
+    (lambda (env) (proc1 env) (proc2 env)))
+  (define (loop first-proc rest-procs)
+    (if (null? rest-procs)
+        first-proc
+        (loop (sequentially first-proc (car rest-procs))
+              (cdr rest-procs))))
+  (let ((procs (map analyse exps)))
+    (if (null? procs)
+        (error "Empty sequence -- ANALYSE")
+        (loop (car procs) (cdr procs)))))
+
+(define (analyse-application exp)
+  (let ((fproc (analyse (operator exp)))
+        (aprocs (map analyse (operands exp))))
+    (lambda (env)
+      (execute-application (fproc env)
+                           (map (lambda (aproc) (aproc env)) aprocs)))))
+
+(define (execute-application proc args)
+  (cond ((primitive-procedure? proc)
+         (apply-primitive-procedure proc args))
+        ((compound-procedure? proc)
+         ((procedure-body proc)
+          (extend-environment (procedure-parameters proc)
+                              args
+                              (procedure-environment proc))))
+        (else (error "Unknown procedure type -- EXECUTE-APPLICATION" proc))))
+
+(define (let? exp)
+  (tagged-list? exp 'let))
+
+(define (let-bindings exp) (cadr exp))
+(define (let-body exp) (cddr exp))
+(define (let->lambda exp)
+  (let ((bindings (let-bindings exp)))
+    (let ((vars (map car bindings))
+          (exps (map cadr bindings)))
+      (append (list (make-lambda vars (let-body exp))) exps))))
 
 (define (list-of-values exps env)
   (if (no-operands? exps)
@@ -266,16 +361,26 @@
 
 (define (primitive-implementation proc) (cadr proc))
 
+(define logging false)
+(define (toggle-logging)
+  (set! logging (not logging)))
+    
 (define primitive-procedures
   (list (list 'car car)
         (list 'cdr cdr)
         (list 'cons cons)
         (list 'null? null?)
-        (list '+ +)
         (list '* *)
-        (list '/ /)
+        (list '+ +)
         (list '- -)
-        (list '= =)))
+        (list '= =)
+        (list '/ /)
+        (list '< <)
+        (list '> >)
+        (list '>= >=)
+        (list '<= <=)
+        (list 'log toggle-logging)))
+
 (define (primitive-procedure-names)
   (map car
        primitive-procedures))
@@ -292,11 +397,17 @@
 (define output-prompt ";;; M-Eval value:")
 (define (driver-loop)
   (prompt-for-input input-prompt)
-  (let ((input (read)))
+  (let ((input (read))
+        (starttime (runtime)))
     (let ((output (my-eval input the-global-environment)))
       (announce-output output-prompt)
-      (user-print output)))
+      (user-print output)
+      (if logging
+          (begin
+            (newline) (display "Time taken: ") (display (- (runtime) starttime))))))
   (driver-loop))
+
+
 (define (prompt-for-input string)
   (newline) (newline) (display string) (newline))
 
@@ -313,3 +424,9 @@
 
 (define the-global-environment (setup-environment))
 (driver-loop)
+
+(define test '(define (test x)
+                (let ((mult (* x 10)))
+                  (+ mult x))))
+
+

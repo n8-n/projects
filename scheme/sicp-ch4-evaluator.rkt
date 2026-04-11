@@ -302,6 +302,10 @@
 (define (primitive-procedure? proc)
   (tagged-list? proc 'primitive))
 
+(define logging false)
+(define (toggle-logging)
+  (set! logging (not logging)))
+    
 (define primitive-procedures
   (list (list 'car car)
         (list 'cdr cdr)
@@ -311,7 +315,13 @@
         (list '+ +)
         (list '- -)
         (list '= =)
-        (list '/ /)))
+        (list '/ /)
+        (list '< <)
+        (list '> >)
+        (list '>= >=)
+        (list '<= <=)
+        (list 'log toggle-logging)))
+      
 
 (define (apply-primitive-procedure proc args)
   ;; uses underlying scheme apply
@@ -620,10 +630,14 @@
 
 (define (driver-loop)
   (prompt-for-input input-prompt)
-  (let ((input (read)))
+  (let ((input (read))
+        (starttime (runtime)))
     (let ((output (my-eval input the-global-environment)))
       (announce-output output-prompt)
-      (user-print output)))
+      (user-print output)
+      (if logging
+          (begin
+            (newline) (display "Time taken: ") (display (- (runtime) starttime))))))
   (driver-loop))
 
 (define (prompt-for-input string)
@@ -647,5 +661,5 @@
 
 (define the-global-environment (setup-environment))
 (install-eval-expressions)
-;(driver-loop)
+(driver-loop)
 
