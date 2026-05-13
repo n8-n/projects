@@ -1,0 +1,3 @@
+#+title: SICP
+
+Messy code and exercises for the /Structure and Interpretation of Computer Programs/

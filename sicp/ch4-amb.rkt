@@ -1,8 +1,5 @@
 #lang sicp
 
-(define (my-eval exp env)
-  ((analyse exp) env))
-
 (define (analyse exp)
   (cond ((self-evaluating? exp) (analyse-self-evaluating exp))
         ((quoted? exp) (analyse-quoted exp))
@@ -18,26 +15,17 @@
         ((application? exp) (analyse-application exp))
         (else (error "Unknown expression type -- ANALYSE" exp))))
 
-(define (my-apply procedure arguments)
-  (cond ((primitive-procedure? procedure)
-         (apply-primitive-procedure procedure arguments))
-        ((compound-procedure? procedure)
-         (eval-sequence
-          (procedure-body procedure)
-          (extend-environment
-           (procedure-parameters procedure)
-           arguments
-           (procedure-environment procedure))))
-        (else
-         (error "Unknown procedure type: APPLY" procedure))))
-
 (define (ambeval exp env succeed fail)
   ((analyse exp) env succeed fail))
 
 (define (amb? exp) (tagged-list? exp 'amb))
 (define (amb-choices exp) (cdr exp))
 
-(define (amb . args) 'todo)
+;; No definition in the book?
+;; How to implement?
+(define (amb . args)
+  (if (= 0 (length args))
+      'failure))
 
 (define (require p)
   (if (not p) (amb)))
@@ -187,39 +175,6 @@
           (exps (map cadr bindings)))
       (append (list (make-lambda vars (let-body exp))) exps))))
 
-(define (list-of-values exps env)
-  (if (no-operands? exps)
-      '()
-      (cons (my-eval (first-operand exps) env)
-            (list-of-values (rest-operands exps) env))))
-
-
-(define (eval-if exp env)
-  (if (true? (my-eval (if-predicate exp) env))
-      (my-eval (if-consequent exp) env)
-      (my-eval (if-alternative exp) env)))
-
-(define (eval-sequence exps env)
-  (cond ((last-exp? exps)
-         (my-eval (first-exp exps) env))
-        (else
-         (my-eval (first-exp exps) env)
-         (eval-sequence (rest-exps exps) env))))
-
-
-(define (eval-assignment exp env)
-  (set-variable-value!
-   (assignment-variable exp)
-   (my-eval (assignment-value exp) env)
-   env)
-  'ok-assign)
-
-(define (eval-definition exp env)
-  (define-variable!
-    (definition-variable exp)
-    (my-eval (definition-value exp) env)
-    env)
-  'ok-define)
 
 
 ;; Expressions
@@ -406,6 +361,13 @@
     (scan (frame-variables frame)
           (frame-values frame))))
 
+ 
+(define (distinct? l)
+  (cond ((null? l) true)
+        ((null? (cdr l)) true)
+        ((member (car l) (cdr l)) false)
+        (else (distinct? (cdr l)))))
+
 (define (setup-environment)
   (let ((initial-env
          (extend-environment (primitive-procedure-names)
@@ -429,6 +391,10 @@
         (list 'cdr cdr)
         (list 'cons cons)
         (list 'null? null?)
+        (list 'not not)
+        ;;(list 'and and)
+        ;;(list 'or or)
+        (list 'abs abs)
         (list '* *)
         (list '+ +)
         (list '- -)
@@ -439,7 +405,9 @@
         (list '>= >=)
         (list '<= <=)
         (list 'list list)
-        (list 'log toggle-logging)))
+        (list 'log toggle-logging)
+        (list 'require require)
+        (list 'distinct? distinct?)))
 
 (define (primitive-procedure-names)
   (map car
@@ -488,12 +456,6 @@
           (require (integer? k))
           (list i j k))))))
 
-(define (distinct? l)
-  (cond ((null? l) true)
-        ((memq (car l) (cdr l)) false)
-        (else (distinct? (cdr l)))))
-   
-
 (define (multiple-dwelling)
   (let ((baker (amb 1 2 3 4 5))
         (cooper (amb 1 2 3 4 5))
@@ -507,7 +469,7 @@
     (require (not (= fletcher 5)))
     (require (not (= fletcher 1)))
     (require (> miller cooper))
-    ;(require (not (= (abs (- smith fletcher)) 1)))
+    (require (not (= (abs (- smith fletcher)) 1)))
     (require (not (= (abs (- fletcher cooper)) 1)))
     (list (list 'baker baker)
           (list 'cooper cooper)
