@@ -21,15 +21,6 @@
 (define (amb? exp) (tagged-list? exp 'amb))
 (define (amb-choices exp) (cdr exp))
 
-;; No definition in the book?
-;; How to implement?
-(define (amb . args)
-  (if (= 0 (length args))
-      'failure))
-
-(define (require p)
-  (if (not p) (amb)))
-
 
 (define (analyse-self-evaluating exp)
   (lambda (env succeed fail)
@@ -395,6 +386,8 @@
         ;;(list 'and and)
         ;;(list 'or or)
         (list 'abs abs)
+        (list 'sqrt sqrt)
+        (list 'integer? integer?)
         (list '* *)
         (list '+ +)
         (list '- -)
@@ -406,7 +399,6 @@
         (list '<= <=)
         (list 'list list)
         (list 'log toggle-logging)
-        (list 'require require)
         (list 'distinct? distinct?)))
 
 (define (primitive-procedure-names)
@@ -420,70 +412,127 @@
 (define (apply-primitive-procedure proc args)
   (apply (primitive-implementation proc) args))
 
-(define (an-integer-starting-from n)
-  (amb n (an-integer-starting-from (+ n 1))))
+(define int-starting
+  '(define (an-integer-starting-from n)
+     (amb n (an-integer-starting-from (+ n 1)))))
 
 ;; exercise 4.35
-(define (an-integer-between low high)
-  (require (<= low high))
-  (amb low (an-integer-between (+ low 1) high)))
+(define int-between
+  '(define (an-integer-between low high)
+     (require (<= low high))
+     (amb low (an-integer-between (+ low 1) high))))
 
-(define (a-pythagorean-triple-between_old low high)
-  (let ((i (an-integer-between low high)))
-    (let ((j (an-integer-between i high)))
-      (let ((k (an-integer-between j high)))
-        (require (= (+ (* i i) (* j j)) (* k k)))
-        (list i j k)))))
+(define pyth-triple-old
+  '(define (a-pythagorean-triple-between_old low high)
+     (let ((i (an-integer-between low high)))
+       (let ((j (an-integer-between i high)))
+         (let ((k (an-integer-between j high)))
+           (require (= (+ (* i i) (* j j)) (* k k)))
+           (list i j k))))))
 
 ;; Exercise 4.36
 ;; If we simply replace, then we will get stuck in an endless loop incrementing value of k
-(define (pythagorean-triples)
-  (let ((k (an-integer-starting-from 1)))
-    (let ((i (an-integer-between 1 k)))
-      (let ((j (an-integer-between i k)))
-        (require (= (+ (* i i) (* j j)) (* k k)))
-        (list i j k)))))
+(define pyth-triples
+  '(define (pythagorean-triples)
+     (let ((k (an-integer-starting-from 1)))
+       (let ((i (an-integer-between 1 k)))
+         (let ((j (an-integer-between i k)))
+           (require (= (+ (* i i) (* j j)) (* k k)))
+           (list i j k))))))
 
 ;; Exercise 4.37
 ;; Yes, it's more efficient. Only two amb calculations rather than three.
-(define (a-pythagorean-triple-between low high)
-  (let ((i (an-integer-between low high))
-        (hsq (* high high)))
-    (let ((j (an-integer-between i high)))
-      (let ((ksq (+ (* i i) (* j j))))
-        (require (>= hsq ksq))
-        (let ((k (sqrt ksq)))
-          (require (integer? k))
-          (list i j k))))))
+(define pyth-triples-between
+  '(define (a-pythagorean-triple-between low high)
+     (let ((i (an-integer-between low high))
+           (hsq (* high high)))
+       (let ((j (an-integer-between i high)))
+         (let ((ksq (+ (* i i) (* j j))))
+           (require (>= hsq ksq))
+           (let ((k (sqrt ksq)))
+             (require (integer? k))
+             (list i j k)))))))
 
-(define (multiple-dwelling)
-  (let ((baker (amb 1 2 3 4 5))
-        (cooper (amb 1 2 3 4 5))
-        (fletcher (amb 1 2 3 4 5))
-        (miller (amb 1 2 3 4 5))
-        (smith (amb 1 2 3 4 5)))
-    (require
-     (distinct? (list baker cooper fletcher miller smith)))
-    (require (not (= baker 5)))
-    (require (not (= cooper 1)))
-    (require (not (= fletcher 5)))
-    (require (not (= fletcher 1)))
-    (require (> miller cooper))
-    (require (not (= (abs (- smith fletcher)) 1)))
-    (require (not (= (abs (- fletcher cooper)) 1)))
-    (list (list 'baker baker)
-          (list 'cooper cooper)
-          (list 'fletcher fletcher)
-          (list 'miller miller)
-          (list 'smith smith))))
+(define multiple-dwelling
+  '(define (multiple-dwelling)
+     (let ((baker (amb 1 2 3 4 5))
+           (cooper (amb 1 2 3 4 5))
+           (fletcher (amb 1 2 3 4 5))
+           (miller (amb 1 2 3 4 5))
+           (smith (amb 1 2 3 4 5)))
+       (require
+        (distinct? (list baker cooper fletcher miller smith)))
+       (require (not (= baker 5)))
+       (require (not (= cooper 1)))
+       (require (not (= fletcher 5)))
+       (require (not (= fletcher 1)))
+       (require (> miller cooper))
+       ;;(require (not (= (abs (- smith fletcher)) 1)))
+       (require (not (= (abs (- fletcher cooper)) 1)))
+       (list (list 'baker baker)
+             (list 'cooper cooper)
+             (list 'fletcher fletcher)
+             (list 'miller miller)
+             (list 'smith smith)))))
 
+       
 ;;Exercise 4.39
 ;; Yes, it matters because evaluation will backtrack once it hits a requirement that is false.
 ;; We should put the most restrictive requirements first to limit the possibilities. We should
 ;; also move computational expensive requirements later in the query.
 
 
+;; Exercise 4.40
+(define multiple-dwelling-2
+  '(define (multiple-dwelling-2)
+     (let ((cooper (amb 2 3 4 5))
+           (fletcher (amb 2 3 4)))
+       (require (not (= (abs (- fletcher cooper)) 1)))
+       (let ((smith (amb 1 2 3 4 5)))
+         (require (not (= (abs (- smith fletcher)) 1)))
+         (let ((miller (amb 1 2 3 4 5)))
+           (require (> miller cooper))
+           (let ((baker (amb 1 2 3 4)))
+             (require
+              (distinct? (list baker cooper fletcher miller smith)))
+             (list (list 'baker baker)
+                   (list 'cooper cooper)
+                   (list 'fletcher fletcher)
+                   (list 'miller miller)
+                   (list 'smith smith))))))))
 
+
+;; Exercise 4.42
+(define liars
+  '(define (liars)
+     (let ((betty (amb 1 2 3 4 5))
+           (ethel (amb 1 2 3 4 5))
+           (joan (amb 1 2 3 4 5))
+           (kitty (amb 1 2 3 4 5))
+           (mary (amb 1 2 3 4 5)))
+       (require (xor (= kitty 2) (= betty 3)))
+       (require (xor (= ethel 1) (= joan 2)))
+       (require (xor (= joan 3) (= ethel 5)))
+       (require (xor (= kitty 2) (= mary 4)))
+       (require (xor (= mary 4) (= betty 1)))
+       (require (distinct? (list betty ethel joan kitty mary)))
+       (list
+        (list 'betty betty)
+        (list 'ethel ethel)
+        (list 'joan joan)
+        (list 'kitty kitty)
+        (list 'mary mary)))))
+
+
+;; Exercise 4.43
+(define yachts
+  '(define (yachts)
+     (let ((downing (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
+           (hall (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
+           (hood (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
+           (moore (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
+           (parker (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind)))
+       ;;TODO)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -535,7 +584,26 @@
 
 (define the-global-environment (setup-environment))
 
+(define (eval-in-env code)
+  (let ((empty-success (lambda (val next) 'success))
+        (empty-fail (lambda () 'fail)))
+    (ambeval code the-global-environment empty-success empty-fail)))
+
+(eval-in-env
+ '(define (require p)
+    (if (not p) (amb))))
+
+(eval-in-env
+ '(define (xor a b)
+    (if a (not b) b)))
+
+(eval-in-env int-starting)
+(eval-in-env multiple-dwelling)
+(eval-in-env int-between)
+(eval-in-env pyth-triples)
+(eval-in-env pyth-triples-between)
+(eval-in-env multiple-dwelling-2)
+(eval-in-env liars)
 
 (driver-loop)
-
-
+      
