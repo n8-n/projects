@@ -383,6 +383,7 @@
         (list 'cons cons)
         (list 'null? null?)
         (list 'not not)
+        (list 'eq? eq?)
         ;;(list 'and and)
         ;;(list 'or or)
         (list 'abs abs)
@@ -527,12 +528,62 @@
 ;; Exercise 4.43
 (define yachts
   '(define (yachts)
-     (let ((downing (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
-           (hall (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
-           (hood (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
-           (moore (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind))
-           (parker (amb 'gabrielle 'lorna 'mary-ann 'melissa 'rosalind)))
-       ;;TODO)))
+     (define (yacht pair) (car pair))
+     (define (daughter pair) (cdr pair))
+     (define (lister surname x)
+       (list surname (yacht x) (daughter x)))
+     
+     (let ((downing (cons 'melissa (amb 'rosalind 'gabrielle 'lorna)))
+           (hall (cons 'rosalind (amb 'gabrielle 'lorna)))
+           (hood (cons 'gabrielle 'melissa))
+           (moore (cons 'lorna 'mary-ann)))
+       (require (not (eq? (daughter hall) (daughter downing))))
+       (let ((parker (cons 'mary-ann (amb 'rosalind 'lorna))))
+         (require (not (eq? (daughter hall) (daughter parker))))
+         (require (not (eq? (daughter parker) (daughter downing))))
+         (if (eq? (daughter hall) 'gabrielle)
+             (require (eq? (yacht hall) (daughter parker)))
+             (require (eq? (yacht downing) (daughter parker))))
+         (list
+          (lister 'downing downing)
+          (lister 'hall hall)
+          (lister 'hood hood)
+          (lister 'moore moore)
+          (lister 'parker parker))))))
+
+;; Exercise 4.44
+(define queens
+  '(define (queens)
+     (define (x queen) (car queen))
+     (define (y queen) (cdr queen))
+     (define (diagonal q1 q2)
+       (define (x queen) (car queen))
+       (define (y queen) (cdr queen))
+       (let ((x-diff (abs (- (x q1) (x q2))))
+             (y-diff (abs (- (y q1) (y q2)))))
+         (= x-diff y-diff)))
+     (define (in-check q1 q2)
+       (let ((x1 (x q1))
+             (y1 (y q1))
+             (x1 (x q2))
+             (y2 (y q2)))
+         (cond ((= x1 x2) #t)
+               ((= y1 y2) #t)
+               ((diagonal q1 q2) #t)
+               (else 'f))))
+     (define (amb-xy)
+       (cons (amb 0 1 2 3 4 5 6 7)
+             (amb 0 1 2 3 4 5 6 7)))
+
+     'todo))
+
+
+(define (diagonal q1 q2)
+  (define (x queen) (car queen))
+  (define (y queen) (cdr queen))
+  (let ((x-diff (abs (- (x q1) (x q2))))
+        (y-diff (abs (- (y q1) (y q2)))))
+    (= x-diff y-diff)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -589,6 +640,13 @@
         (empty-fail (lambda () 'fail)))
     (ambeval code the-global-environment empty-success empty-fail)))
 
+(define (eval-multiple statements)
+  (if (null? statements)
+      'done
+      (begin
+        (eval-in-env (car statements))
+        (eval-multiple (cdr statements)))))
+
 (eval-in-env
  '(define (require p)
     (if (not p) (amb))))
@@ -597,13 +655,14 @@
  '(define (xor a b)
     (if a (not b) b)))
 
-(eval-in-env int-starting)
-(eval-in-env multiple-dwelling)
-(eval-in-env int-between)
-(eval-in-env pyth-triples)
-(eval-in-env pyth-triples-between)
-(eval-in-env multiple-dwelling-2)
-(eval-in-env liars)
+(eval-multiple (list int-starting
+                     multiple-dwelling
+                     int-between
+                     pyth-triples
+                     pyth-triples-between
+                     multiple-dwelling-2
+                     liars
+                     yachts))
 
 (driver-loop)
       
