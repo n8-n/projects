@@ -1,21 +1,6 @@
 #lang sicp
 
-(define (lookup key table)
-  (let ((record (assoc key (cdr table))))
-    (if record
-        (cdr record)
-        false)))
-
-(define (insert! key value table)
-  (let ((record (assoc key (cdr table))))
-    (if record
-        (set-cdr! record value)
-        (set-cdr! table
-                  (cons (cons key value) (cdr table)))))
-  'ok-insert)
-
-(define (make-table)
-  (list '*table*))
+(#%require "../util/table.rkt")
 
 (define expressions-table (make-table))
 
