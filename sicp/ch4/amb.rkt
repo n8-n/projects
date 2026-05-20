@@ -21,6 +21,9 @@
 (define (amb? exp) (tagged-list? exp 'amb))
 (define (amb-choices exp) (cdr exp))
 
+;; Exercise 4.50
+(define (ramb? exp) (tagged-list? exp 'ramb))
+(define (ramb-choices exp) (cdr exp))
 
 (define (analyse-self-evaluating exp)
   (lambda (env succeed fail)
@@ -153,7 +156,30 @@
                            succeed
                            (lambda () (try-next (cdr choices))))))
       (try-next cprocs))))
-                             
+
+;; return pair: (random-choice rest-of-list)
+(define (take-random l)
+  (define (loop i head tail)
+    (cond ((= i 0) (cons (car tail) (list (append head (cdr tail)))))
+          (else (loop (- i 1)
+                      (append head (list (car tail)))
+                      (cdr tail)))))
+  (let ((len (length l)))
+    (if (= len 0)
+        '()
+        (loop (random len) '() l))))
+
+(define (analyse-ramb exp)
+  (let ((cprocs (map analyse (amb-choices exp))))
+    (lambda (env succeed fail)
+      (define (try-next choices)
+        (if (null? choices)
+            (fail)
+            ((car choices) env
+                           succeed
+                           (lambda () (try-next (cdr choices))))))
+      (try-next cprocs))))
+
 
 (define (let? exp)
   (tagged-list? exp 'let))
@@ -384,6 +410,7 @@
         (list 'null? null?)
         (list 'not not)
         (list 'eq? eq?)
+        (list 'append append)
         ;;(list 'and and)
         ;;(list 'or or)
         (list 'abs abs)
@@ -503,6 +530,11 @@
                    (list 'smith smith))))))))
 
 
+;;Exercise 4.41
+;; TODO
+(define (multiple-dwellings-scheme)
+  'todo)
+
 ;; Exercise 4.42
 (define liars
   '(define (liars)
@@ -562,28 +594,38 @@
        (let ((x-diff (abs (- (x q1) (x q2))))
              (y-diff (abs (- (y q1) (y q2)))))
          (= x-diff y-diff)))
-     (define (in-check q1 q2)
+     (define (in-check? q1 q2)
        (let ((x1 (x q1))
              (y1 (y q1))
-             (x1 (x q2))
+             (x2 (x q2))
              (y2 (y q2)))
-         (cond ((= x1 x2) #t)
-               ((= y1 y2) #t)
-               ((diagonal q1 q2) #t)
-               (else 'f))))
+         (cond ((= x1 x2) true)
+               ((= y1 y2) true)
+               ((diagonal q1 q2) true)
+               (else false))))
+     (define (valid-queen? queen prev-queens)
+       (cond ((null? prev-queens) true)
+             ((in-check? queen (car prev-queens)) false)
+             (else (valid-queen? queen (cdr prev-queens)))))
      (define (amb-xy)
-       (cons (amb 0 1 2 3 4 5 6 7)
-             (amb 0 1 2 3 4 5 6 7)))
+       (cons (amb 1 2 3 4 5 6 7 8)
+             (amb 1 2 3 4 5 6 7 8)))
+     (define (loop queens-acc i)
+       (if (= i 8)
+           queens-acc
+           (begin
+             (let ((new-queen (amb-xy)))
+               (require (valid-queen? new-queen queens-acc))
+               (loop (append queens-acc (list new-queen)) (+ i 1))))))
+     (loop '() 0)))
 
-     'todo))
 
 
-(define (diagonal q1 q2)
-  (define (x queen) (car queen))
-  (define (y queen) (cdr queen))
-  (let ((x-diff (abs (- (x q1) (x q2))))
-        (y-diff (abs (- (y q1) (y q2)))))
-    (= x-diff y-diff)))
+;; Language Parsing
+;; TODO
+
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -662,7 +704,8 @@
                      pyth-triples-between
                      multiple-dwelling-2
                      liars
-                     yachts))
+                     yachts
+                     queens))
 
-(driver-loop)
+;;(driver-loop)
       
