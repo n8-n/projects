@@ -5,13 +5,17 @@
         ((quoted? exp) (analyse-quoted exp))
         ((variable? exp) (analyse-variable exp))
         ((assignment? exp) (analyse-assignment exp))
+        ((permanent-assignment? exp) (analyse-permanent-assignment exp))
         ((definition? exp) (analyse-definition exp))
         ((if? exp) (analyse-if exp))
+        ((if-fail? exp) (analyse-if-fail exp))
         ((let? exp) (analyse (let->lambda exp)))
         ((lambda? exp) (analyse-lambda exp))
         ((begin? exp) (analyse-sequence (begin-actions exp)))
         ((cond? exp) (analyse (cond->if exp)))
         ((amb? exp) (analyse-amb exp))
+        ((ramb? exp) (analyse-ramb exp))
+        ((require? exp) (analyse-require exp))
         ((application? exp) (analyse-application exp))
         (else (error "Unknown expression type -- ANALYSE" exp))))
 
@@ -20,10 +24,6 @@
 
 (define (amb? exp) (tagged-list? exp 'amb))
 (define (amb-choices exp) (cdr exp))
-
-;; Exercise 4.50
-(define (ramb? exp) (tagged-list? exp 'ramb))
-(define (ramb-choices exp) (cdr exp))
 
 (define (analyse-self-evaluating exp)
   (lambda (env succeed fail)
@@ -157,6 +157,7 @@
                            (lambda () (try-next (cdr choices))))))
       (try-next cprocs))))
 
+;; Exercise 4.50
 ;; return pair: (random-choice rest-of-list)
 (define (take-random l)
   (define (loop i head tail)
@@ -175,11 +176,15 @@
       (define (try-next choices)
         (if (null? choices)
             (fail)
-            ((car choices) env
-                           succeed
-                           (lambda () (try-next (cdr choices))))))
+            (let* ((random-choices (take-random choices))
+                   (first (car random-choices))
+                   (rest (cadr random-choices)))
+              (first env
+                     succeed
+                     (lambda () (try-next rest))))))
       (try-next cprocs))))
 
+(define (ramb? exp) (tagged-list? exp 'ramb))
 
 (define (let? exp)
   (tagged-list? exp 'let))
@@ -425,6 +430,8 @@
         (list '> >)
         (list '>= >=)
         (list '<= <=)
+        (list 'even? even?)
+        (list 'odd? odd?)
         (list 'list list)
         (list 'log toggle-logging)
         (list 'distinct? distinct?)))
@@ -625,8 +632,53 @@
 ;; TODO
 
 
+;; Exercise 4.51
+(define (permanent-assignment? exp)
+  (tagged-list? exp 'permanent-set!))
+
+(define (analyse-permanent-assignment exp)
+  (let ((var (assignment-variable exp))
+        (vproc (analyse (assignment-value exp))))
+    (lambda (env succeed fail)
+      (vproc env
+             (lambda (val fail2)
+               (set-variable-value! var val env)
+               (succeed 'ok fail2))
+             fail))))
 
 
+;; Exercise 4.52
+(define (if-fail? exp)
+  (tagged-list? exp 'if-fail))
+
+(define (if-fail-test exp) (cadr exp))
+(define (if-fail-alternative exp) (caddr exp))
+
+(define (analyse-if-fail exp)
+  (let ((test (analyse (if-fail-test exp)))
+        (alternative (analyse (if-fail-alternative exp))))
+    (lambda (env succeed fail)
+      (test env
+            (lambda (value fail2) (succeed value fail2))
+            (lambda ()
+              (alternative env
+                           (lambda (value fail3) (succeed value fail3))
+                           fail))))))
+
+
+;; Exercise 4.54
+(define (require? exp) (tagged-list? exp 'require))
+(define (require-pred exp) (cadr exp))
+
+(define (analyse-require exp)
+  (let ((pproc (analyse (require-pred exp))))
+    (lambda (env succeed fail)
+      (pproc env
+             (lambda (pred-value fail2)
+               (if (not pred-value)
+                   (fail2)
+                   (succeed 'ok fail2)))
+             fail))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -689,9 +741,9 @@
         (eval-in-env (car statements))
         (eval-multiple (cdr statements)))))
 
-(eval-in-env
- '(define (require p)
-    (if (not p) (amb))))
+;; (eval-in-env
+;;  '(define (require p)
+;;     (if (not p) (amb))))
 
 (eval-in-env
  '(define (xor a b)
@@ -707,5 +759,5 @@
                      yachts
                      queens))
 
-;;(driver-loop)
+(driver-loop)
       
