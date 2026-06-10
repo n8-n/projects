@@ -109,7 +109,7 @@
     (for-each reg-setup reg-bindings)
     (machine 'start)
     (get-register-contents machine return)))
-  
+
 (define (start-print machine register)
   (machine 'start)
   (get-register-contents machine register))
@@ -139,10 +139,15 @@
                       (lambda (insts labels)
                         (let ((next-inst (car text)))
                           (if (symbol? next-inst)
-                              (receive insts (cons (make-label-entry next-inst insts)
-                                                   labels))
-                              (receive (cons (make-instruction next-inst) insts)
-                                  labels)))))))
+                              ;; Exercise 5.8
+                              (if (assoc next-inst labels)
+                                  (error "Label is already defined!" next-inst)
+                                  (receive
+                                   insts
+                                   (cons (make-label-entry next-inst insts) labels)))
+                              (receive
+                               (cons (make-instruction next-inst) insts)
+                               labels)))))))
 
 (define (update-insts! insts labels machine)
   (let ((pc (get-register machine 'pc))
@@ -299,12 +304,14 @@
       false))
 
 (define (make-operation-exp exp machine labels operations)
-  (let ((op (lookup-prim (operation-exp-op exp) operations))
-        (aprocs
-         (map (lambda (e) (make-primitive-exp e machine labels))
-              (operation-exp-operands exp))))
-    (lambda ()
-      (apply op (map (lambda (p) (p)) aprocs)))))
+  (if (assoc 'label exp)
+      (error "Cannot operate on a label!" exp)
+      (let ((op (lookup-prim (operation-exp-op exp) operations))
+            (aprocs
+             (map (lambda (e) (make-primitive-exp e machine labels))
+                  (operation-exp-operands exp))))
+        (lambda ()
+          (apply op (map (lambda (p) (p)) aprocs))))))
 
 (define (operation-exp? exp)
   (and (pair? exp) (tagged-list? (car exp) 'op)))
@@ -329,26 +336,26 @@
 (define fac-iter-machine1
   '(controller
     factorial
-      (assign product 1)
-      (assign count 1)
+    (assign product 1)
+    (assign count 1)
     iter
-      (test (op >) (reg count) (reg n))
-      (branch (label fac-done))
-      (assign product (op *) (reg product) (reg count))
-      (assign count (op +1) (reg count))
-      (goto (label iter))
+    (test (op >) (reg count) (reg n))
+    (branch (label fac-done))
+    (assign product (op *) (reg product) (reg count))
+    (assign count (op +1) (reg count))
+    (goto (label iter))
     fac-done))
-    
+
 
 ;; Exercise 5.3
 (define sqrt-1
   '(controller
     sqrt
-      (assign guess (const 1.0))
+    (assign guess (const 1.0))
     iter
-      (test (op good-enough?) (reg guess))
-      (branch (label sqrt-done))
-      (assign guess (op improve) (reg guess))
+    (test (op good-enough?) (reg guess))
+    (branch (label sqrt-done))
+    (assign guess (op improve) (reg guess))
     sqrt-done))
 
 (define (square x) (* x x))
@@ -360,21 +367,21 @@
   (make-machine
    '(guess t x)
    (list (list 'square square) (list '/ /) (list 'avg avg)
-          (list 'abs abs) (list '- -) (list '< <))
-  '(sqrt
-      (assign guess (const 1.0))
-    iter
-    ;;good-enough?
-      (assign t (op square) (reg guess))
-      (assign t (op -) (reg t) (reg x))
-      (assign t (op abs) (reg t))
-      (test (op <) (reg t) (const 0.001))
-      (branch (label sqrt-done))
-    improve
-      (assign t (op /) (reg x) (reg guess))
-      (assign guess (op avg) (reg t) (reg guess))
-      (goto (label iter))
-    sqrt-done)))
+         (list 'abs abs) (list '- -) (list '< <))
+   '(sqrt
+     (assign guess (const 1.0))
+     iter
+     ;;good-enough?
+     (assign t (op square) (reg guess))
+     (assign t (op -) (reg t) (reg x))
+     (assign t (op abs) (reg t))
+     (test (op <) (reg t) (const 0.001))
+     (branch (label sqrt-done))
+     improve
+     (assign t (op /) (reg x) (reg guess))
+     (assign guess (op avg) (reg t) (reg guess))
+     (goto (label iter))
+     sqrt-done)))
 
 
 ;; Exercise 5.4
@@ -383,49 +390,121 @@
    '(continue n b val)
    (list (list '= =) (list '- -) (list '* *))
    '(controller
-      (assign continue (label expt-done))
-    expt-loop
-      (test (op =) (reg n) (const 0))
-      (branch (label base-case))
-      ;; setup recursive call
-      (save continue)
-      (assign n (op -) (reg n) (const 1))
-      (assign continue (label after-expt))
-      (goto (label expt-loop))
-    after-expt
-      (restore continue)
-      (assign val (op *) (reg b) (reg val))
-      (goto (reg continue))
-    base-case
-      (assign val (const 1))
-      (goto (reg continue))
-    expt-done)))
+     (assign continue (label expt-done))
+     expt-loop
+     (test (op =) (reg n) (const 0))
+     (branch (label base-case))
+     ;; setup recursive call
+     (save continue)
+     (assign n (op -) (reg n) (const 1))
+     (assign continue (label after-expt))
+     (goto (label expt-loop))
+     after-expt
+     (restore continue)
+     (assign val (op *) (reg b) (reg val))
+     (goto (reg continue))
+     base-case
+     (assign val (const 1))
+     (goto (reg continue))
+     expt-done)))
 
 (define expt-2
   '(controller
-     (assign (reg count) (reg n))
-     (assign (reg n) (const 1))
-   expt-iter
-     (test (op =) (reg count) (const 0))
-     (branch (label expt-done))
-     (assign count (op -) (reg count) (const 1))
-     (assign n (op *) (reg b) (reg n))
-     (goto (label expt-iter))
-   expt-done))
-     
+    (assign (reg count) (reg n))
+    (assign (reg n) (const 1))
+    expt-iter
+    (test (op =) (reg count) (const 0))
+    (branch (label expt-done))
+    (assign count (op -) (reg count) (const 1))
+    (assign n (op *) (reg b) (reg n))
+    (goto (label expt-iter))
+    expt-done))
+
 
 (define gcd-machine
   (make-machine
    '(a b t)
    (list (list 'rem remainder) (list '= =))
    '(test-b
-       (test (op =) (reg b) (const 0))
-       (branch (label gcd-done))
-       (assign t (op rem) (reg a) (reg b))
-       (assign a (reg b))
-       (assign b (reg t))
-       (goto (label test-b))
-       gcd-done)))
+     (test (op =) (reg b) (const 0))
+     (branch (label gcd-done))
+     (assign t (op rem) (reg a) (reg b))
+     (assign a (reg b))
+     (assign b (reg t))
+     (goto (label test-b))
+     gcd-done)))
 
-(define d (make-new-machine))
-((d 'allocate-register) 't)
+
+
+
+;; Exercise 5.10
+;; Could modify operation initialisation to add the colon automatically
+;; e.g. in (list (list 'print print1) ...)
+;; Don't know if there's a better way than parsing symbols to strings
+
+;; (define (operation-exp? exp)
+;;   (define (first-letter-colon? x)
+;;     (equal? #\: (string-ref (symbol->string x) 0)))
+;;   (and (pair? exp) (first-letter-colon? (car exp))))
+;; (define (operation-exp-op operation-exp)
+;;   (car operation-exp))
+;; (define (operation-exp-operands operation-exp)
+;;   (cdr operation-exp))
+
+;; (define (print1 label) (display "> ") (display label) (newline))
+
+;; (define op-test
+;;   (make-machine
+;;    '(a)
+;;    (list (list ':print print1) (list ':= =) (list ':inc (lambda (x) (+ x 1))))
+;;    '(start
+;;      (test := (reg a) (const 5))
+;;      (branch (label done))
+;;      (perform :print (reg a))
+;;      (assign a :inc (reg a))
+;;      (goto (label start))
+;;      done)))
+
+
+(define fib1
+  (make-machine
+   '(n continue val)
+   (list (list '< <) (list '- -) (list '+ +))
+   '(controller
+     (assign continue (label fib-done))
+     fib-loop
+     (test (op <) (reg n) (const 2))
+     (branch (label immediate-answer))
+     ;; set up to compute Fib(n - 1)
+     (save continue)
+     (assign continue (label afterfib-n-1))
+     (save n)
+     (assign n (op -) (reg n) (const 1))
+     (goto (label fib-loop))
+     afterfib-n-1
+     (restore n)
+     ;; set up to compute Fib(n - 2)
+     (assign n (op -) (reg n) (const 2))
+     (assign continue (label afterfib-n-2))
+     (save val)
+     (goto (label fib-loop))
+     afterfib-n-2
+     (assign n (reg val))
+     (restore val)
+     (restore continue)
+     (assign val (op +) (reg val) (reg n))
+     (goto (reg continue))
+     immediate-answer
+     (assign val (reg n))
+     (goto (reg continue))
+     fib-done)))
+
+
+;; Exercise 5.11
+;; question a:
+;; in afterfib-n-2
+;; (assign n (reg val))
+;; (restore val)
+;; replaced with => (restore n)
+
+
