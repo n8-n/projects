@@ -57,7 +57,11 @@
   (let ((pc (make-register 'pc)) ; program counter
         (flag (make-register 'flag)) ; for branching
         (stack (make-stack))
-        (the-instruction-sequence '()))
+        (the-instruction-sequence '())
+        (sorted-instructions '())
+        (goto-registers '())
+        (stack-registers '())
+        (register-sources '()))
     (let ((the-ops
            (list (list 'initialise-stack
                        (lambda () (stack 'initialise)))))
@@ -82,6 +86,14 @@
               (begin
                 ((instruction-execution-proc (car insts)))
                 (execute)))))
+      (define (information type)
+        (cond ((eq? type 'instructions) 'todo)
+              ((eq? type 'registers) 'todo)
+              ((eq? type 'stack-operations) 'todo)
+              ((eq? type 'register-sources) 'todo)
+              (else (error "Unknown information type -- MACHINE" type))))
+      (define (create-information-lists text) 'todo)
+        
       (define (dispatch message)
         (cond ((eq? message 'start)
                (set-contents! pc the-instruction-sequence)
@@ -94,6 +106,7 @@
                (lambda (ops) (set! the-ops (append the-ops ops))))
               ((eq? message 'stack) stack)
               ((eq? message 'operations) the-ops)
+              ((eq? message 'create-information-lists) create-information-lists)
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -508,3 +521,9 @@
 ;; replaced with => (restore n)
 
 
+
+
+;;; TODO for exercise 5.12
+;; where to create these lists? during assemble, or do it separately?
+;; separately might be easier, but will have to go through controller text multiple times.
+;; If doing it in assemble, look at make-execution-procedure?
