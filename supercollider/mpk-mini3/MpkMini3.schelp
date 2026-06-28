@@ -1,0 +1,184 @@
+TITLE:: MpkMini3
+summary:: Bus-based handler object for AKAI MPK Mini 3. 
+categories:: Midi
+related:: Classes/MIDIClient, Classes/MIDIIn, Classes/MIDIdef
+
+DESCRIPTION::
+MpkMini3 is a wrapper class for the AKAI MPK Mini 3. CC values from knobs are sent to internal Bus objects that can then be used to control UGens.
+
+LIST::
+## The MPK's pads are used to define eight banks, which each have their own set of knobs and buses.
+## One knob (K8) is reserved as a master volume knob by default.
+## Knobs can be used in relative (INC/DEC) or absolute (0-127) mode.
+::
+
+
+
+STRONG::TODO:::
+LIST::
+## Implement functionality for keys.
+## Pitch bend and mod wheel?
+## Maybe extend to use all 16 banks.
+::
+
+CLASSMETHODS::
+
+METHOD:: new
+(describe method here)
+
+ARGUMENT:: knobCC
+(describe argument here)
+
+ARGUMENT:: bankCC
+(describe argument here)
+
+ARGUMENT:: knobScale
+(describe argument here)
+
+ARGUMENT:: relativeKnobs
+(describe argument here)
+
+ARGUMENT:: volumeKnob
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+
+INSTANCEMETHODS::
+
+METHOD:: relativeKnobsMode
+(describe method here)
+
+ARGUMENT:: enable
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prInitBuses
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: volumeKnob
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prConnectMidi
+(describe method here)
+
+ARGUMENT:: device
+(describe argument here)
+
+ARGUMENT:: name
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: debugLogs
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: knobScale
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: getBus
+(describe method here)
+
+ARGUMENT:: bank
+(describe argument here)
+
+ARGUMENT:: knob
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: setKnobScale
+(describe method here)
+
+ARGUMENT:: bank
+(describe argument here)
+
+ARGUMENT:: knob
+(describe argument here)
+
+ARGUMENT:: scale
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: currentBank
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: relativeKnobs
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: server
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: bankCC
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prInitMidiDefs
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: init
+(describe method here)
+
+ARGUMENT:: knobCC
+(describe argument here)
+
+ARGUMENT:: bankCC
+(describe argument here)
+
+ARGUMENT:: knobScale
+(describe argument here)
+
+ARGUMENT:: relativeKnobs
+(describe argument here)
+
+ARGUMENT:: volumeKnob
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: knobCC
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: prIncrementer
+(describe method here)
+
+ARGUMENT:: val
+(describe argument here)
+
+ARGUMENT:: cc
+(describe argument here)
+
+returns:: (describe returnvalue here)
+
+METHOD:: buses
+(describe method here)
+
+returns:: (describe returnvalue here)
+
+
+EXAMPLES::
+
+code::
+(some example code)
+::
