@@ -1,11 +1,8 @@
 #lang sicp
 
 ;; Machine model
-(define (make-machine register-names ops controller-text)
+(define (make-machine ops controller-text)
   (let ((machine (make-new-machine)))
-    (for-each (lambda (register-name)
-                ((machine 'allocate-register) register-name))
-              register-names)
     ((machine 'install-operation) ops)
     ((machine 'install-instruction-sequence)
      (assemble controller-text machine))
@@ -75,18 +72,21 @@
                        (lambda () (stack 'initialise)))))
           (register-table
            (list (list 'pc pc) (list 'flag flag))))
+      
       (define (allocate-register name)
         (if (assoc name register-table)
             (error "Multiply defined register: " name)
-            (set! register-table
-                  (cons (list name (make-register name))
-                        register-table)))
-        'register-allocated)
+            (let ((reg (make-register name)))
+              (begin
+                (set! register-table (cons (list name reg) register-table))
+                reg)))) ; return newly-created register
+      ;; Exercise 2.13: allocate unknown registers on lookup
       (define (lookup-register name)
         (let ((val (assoc name register-table)))
           (if val
               (cadr val)
-              (error "Unknown register: " name))))
+              (allocate-register name))))
+      
       (define (execute)
         (let ((insts (get-contents pc)))
           (if (null? insts)
@@ -129,12 +129,14 @@
                (execute))
               ((eq? message 'install-instruction-sequence)
                (lambda (seq) (set! the-instruction-sequence seq)))
+              ((eq? message 'get-instructions) the-instruction-sequence)
               ((eq? message 'allocate-register) allocate-register)
               ((eq? message 'get-register) lookup-register)
               ((eq? message 'install-operation)
                (lambda (ops) (set! the-ops (append the-ops ops))))
               ((eq? message 'stack) stack)
               ((eq? message 'operations) the-ops)
+              ((eq? message 'registers) register-table)
               ;; Information operations
               ((eq? message 'info-add-instruction) info-add-instruction)
               ((eq? message 'info-add-entry-reg) info-add-entry-reg)
@@ -231,26 +233,26 @@
 (define (make-execution-procedure inst labels machine
                                   pc flag stack ops)
   (let ((instruction (car inst)))
+    ((machine 'info-add-instruction) instruction)
     (cond ((eq? instruction 'assign)
-           (make-assign inst machine labels ops pc)
-           ((machine 'info-add-reg-source) inst))
+           ((machine 'info-add-reg-source) inst)
+           (make-assign inst machine labels ops pc))
           ((eq? instruction 'test)
            (make-test inst machine labels ops flag pc))
           ((eq? instruction 'branch)
            (make-branch inst machine labels flag pc))
           ((eq? instruction 'goto)
-           (make-goto inst machine labels pc)
-           ((machine 'info-add-entry-reg) inst))
+           ((machine 'info-add-entry-reg) inst)
+           (make-goto inst machine labels pc))
           ((eq? instruction 'save)
-           (make-save inst machine stack pc)
-           ((machine 'info-add-stack-reg) inst))
+           ((machine 'info-add-stack-reg) inst)
+           (make-save inst machine stack pc))
           ((eq? instruction 'restore)
-           (make-restore inst machine stack pc)
-           ((machine 'info-add-stack-reg) inst))
+           ((machine 'info-add-stack-reg) inst)
+           (make-restore inst machine stack pc))
           ((eq? instruction 'perform)
            (make-perform inst machine labels ops pc))
-          (else (error "Unknown instruction type -- ASSEMBLE" inst)))
-    ((machine 'info-add-instruction) instruction)))
+          (else (error "Unknown instruction type -- ASSEMBLE" inst)))))
 
 (define (make-assign inst machine labels operations pc)
   (let ((target (get-register machine (assign-reg-name inst)))
@@ -422,13 +424,11 @@
 
 (define sqrt-2
   (make-machine
-   '(guess t x)
    (list (list 'square square) (list '/ /) (list 'avg avg)
          (list 'abs abs) (list '- -) (list '< <))
    '(sqrt
      (assign guess (const 1.0))
      iter
-     ;;good-enough?
      (assign t (op square) (reg guess))
      (assign t (op -) (reg t) (reg x))
      (assign t (op abs) (reg t))
@@ -444,7 +444,6 @@
 ;; Exercise 5.4
 (define expt-1
   (make-machine
-   '(continue n b val)
    (list (list '= =) (list '- -) (list '* *))
    '(controller
      (assign continue (label expt-done))
@@ -480,7 +479,6 @@
 
 (define gcd-machine
   (make-machine
-   '(a b t)
    (list (list 'rem remainder) (list '= =))
    '(test-b
      (test (op =) (reg b) (const 0))
@@ -525,7 +523,6 @@
 
 (define fib1
   (make-machine
-   '(n continue val)
    (list (list '< <) (list '- -) (list '+ +))
    '(controller
      (assign continue (label fib-done))
@@ -563,11 +560,3 @@
 ;; (assign n (reg val))
 ;; (restore val)
 ;; replaced with => (restore n)
-
-
-
-
-;;; TODO for exercise 5.12
-;; where to create these lists? during assemble, or do it separately?
-;; separately might be easier, but will have to go through controller text multiple times.
-;; If doing it in assemble, look at make-execution-procedure?
