@@ -52,6 +52,14 @@
 (define (push stack value)
   ((stack 'push) value))
 
+(define (add-sorted l x)
+  ;; fairly naive
+  (define (sort-iter x left-l right-l)
+    (cond ((null? left-l) (append right-l (list x)))
+          ((string<? (symbol->string x) (symbol->string (car left-l)))
+           (append right-l (list x) left-l))
+    (else (sort-iter x (cdr left-l) (append right-l (list (car left-l)))))))
+  (sort-iter x l '()))
 
 (define (make-new-machine)
   (let ((pc (make-register 'pc)) ; program counter
@@ -85,15 +93,36 @@
               'done
               (begin
                 ((instruction-execution-proc (car insts)))
-                (execute)))))
-      (define (information type)
-        (cond ((eq? type 'instructions) 'todo)
-              ((eq? type 'registers) 'todo)
-              ((eq? type 'stack-operations) 'todo)
-              ((eq? type 'register-sources) 'todo)
-              (else (error "Unknown information type -- MACHINE" type))))
-      (define (create-information-lists text) 'todo)
-        
+                (execute)))))      
+
+      (define (info-add-instruction inst-tag)
+        (if (not (memq inst-tag sorted-instructions))
+            (set! sorted-instructions (add-sorted sorted-instructions inst-tag))))
+      (define (info-add-entry-reg inst)
+        (let ((reg (goto-dest (register-exp-reg inst))))
+          (if (not (memq reg goto-registers))
+              (set! goto-registers (cons reg goto-registers)))))
+      (define (info-add-stack-reg inst)
+        (let ((reg (stack-inst-reg-name inst)))
+          (if (not (memq reg stack-registers))
+              (set! stack-registers (cons reg stack-registers)))))
+      (define (info-add-reg-source inst)
+        (let* ((reg (assign-reg-name inst))
+               (expr (assign-value-exp inst))
+               (entry (assoc reg register-sources)))
+          (if entry
+              (let ((entry-sources (cadr entry)))
+                (set-cdr! entry (list (append (list expr) entry-sources))))
+              (set! register-sources (cons (list reg (list expr)) register-sources)))))
+      (define (info-get-reg-source reg)
+        (assoc reg register-sources))
+
+      (define (get-information)
+        (list (list 'sorted-instructions sorted-instructions)
+              (list 'goto-registers goto-registers)
+              (list 'stack-registers stack-registers)
+              (list 'register-sources register-sources)))
+
       (define (dispatch message)
         (cond ((eq? message 'start)
                (set-contents! pc the-instruction-sequence)
@@ -106,7 +135,13 @@
                (lambda (ops) (set! the-ops (append the-ops ops))))
               ((eq? message 'stack) stack)
               ((eq? message 'operations) the-ops)
-              ((eq? message 'create-information-lists) create-information-lists)
+              ;; Information operations
+              ((eq? message 'info-add-instruction) info-add-instruction)
+              ((eq? message 'info-add-entry-reg) info-add-entry-reg)
+              ((eq? message 'info-add-stack-reg) info-add-stack-reg)
+              ((eq? message 'info-add-reg-source) info-add-reg-source)
+              ((eq? message 'get-information) (get-information))
+              ((eq? message 'get-reg-source) info-get-reg-source)
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -190,23 +225,32 @@
         (error "Undefined label -- ASSEMBLE" label-name))))
 
 
+;; Exercise 5.12
+;; Might be a better way to do this, but adding the info logging
+;; functionality here.
 (define (make-execution-procedure inst labels machine
                                   pc flag stack ops)
-  (cond ((eq? (car inst) 'assign)
-         (make-assign inst machine labels ops pc))
-        ((eq? (car inst) 'test)
-         (make-test inst machine labels ops flag pc))
-        ((eq? (car inst) 'branch)
-         (make-branch inst machine labels flag pc))
-        ((eq? (car inst) 'goto)
-         (make-goto inst machine labels pc))
-        ((eq? (car inst) 'save)
-         (make-save inst machine stack pc))
-        ((eq? (car inst) 'restore)
-         (make-restore inst machine stack pc))
-        ((eq? (car inst) 'perform)
-         (make-perform inst machine labels ops pc))
-        (else (error "Unknown instruction type -- ASSEMBLE" inst))))
+  (let ((instruction (car inst)))
+    (cond ((eq? instruction 'assign)
+           (make-assign inst machine labels ops pc)
+           ((machine 'info-add-reg-source) inst))
+          ((eq? instruction 'test)
+           (make-test inst machine labels ops flag pc))
+          ((eq? instruction 'branch)
+           (make-branch inst machine labels flag pc))
+          ((eq? instruction 'goto)
+           (make-goto inst machine labels pc)
+           ((machine 'info-add-entry-reg) inst))
+          ((eq? instruction 'save)
+           (make-save inst machine stack pc)
+           ((machine 'info-add-stack-reg) inst))
+          ((eq? instruction 'restore)
+           (make-restore inst machine stack pc)
+           ((machine 'info-add-stack-reg) inst))
+          ((eq? instruction 'perform)
+           (make-perform inst machine labels ops pc))
+          (else (error "Unknown instruction type -- ASSEMBLE" inst)))
+    ((machine 'info-add-instruction) instruction)))
 
 (define (make-assign inst machine labels operations pc)
   (let ((target (get-register machine (assign-reg-name inst)))
