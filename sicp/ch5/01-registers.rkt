@@ -24,22 +24,37 @@
   ((register 'set) value))
 
 (define (make-stack)
-  (let ((s '()))
+  (let ((s '())
+        (number-pushes 0)
+        (max-depth 0)
+        (current-depth 0))
     (define (push x)
-      (set! s (cons x s)))
+      (set! s (cons x s))
+      (set! number-pushes (+ 1 number-pushes))
+      (set! current-depth (+ 1 current-depth))
+      (set! max-depth (max current-depth max-depth)))
     (define (pop)
       (if (null? s)
           (error "Empty stack -- POP")
           (let ((top (car s)))
             (set! s (cdr s))
+            (set! current-depth (- current-depth 1))
             top)))
     (define (initialise)
       (set! s '())
+      (set! number-pushes 0)
+      (set! max-depth 0)
+      (set! current-depth 0)
       'done)
+    (define (print-statistics)
+      (newline)
+      (display (list 'total-pushes '= number-pushes
+                     'maximum-depth '= max-depth)))
     (define (dispatch message)
       (cond ((eq? message 'push) push)
             ((eq? message 'pop) (pop))
             ((eq? message 'initialise) (initialise))
+            ((eq? message 'print-statistics) (print-statistics))
             (else (error "Unknown requests -- STACK" message))))
     dispatch))
 
@@ -66,10 +81,14 @@
         (sorted-instructions '())
         (goto-registers '())
         (stack-registers '())
-        (register-sources '()))
+        (register-sources '())
+        (instruction-count 0)  ; exercise 5.15
+        (tracing false)) ; exercise 5.16
     (let ((the-ops
            (list (list 'initialise-stack
-                       (lambda () (stack 'initialise)))))
+                       (lambda () (stack 'initialise)))
+                 (list 'print-stack-statistics
+                       (lambda () (stack 'print-statistics)))))
           (register-table
            (list (list 'pc pc) (list 'flag flag))))
       
@@ -86,14 +105,16 @@
           (if val
               (cadr val)
               (allocate-register name))))
-      
-      (define (execute)
+
+       (define (execute)
         (let ((insts (get-contents pc)))
           (if (null? insts)
               'done
               (begin
+                (if tracing (begin (newline) (display (instruction-text (car insts)))))
                 ((instruction-execution-proc (car insts)))
-                (execute)))))      
+                (set! instruction-count (+ 1 instruction-count))
+                (execute)))))
 
       (define (info-add-instruction inst-tag)
         (if (not (memq inst-tag sorted-instructions))
@@ -123,6 +144,15 @@
               (list 'stack-registers stack-registers)
               (list 'register-sources register-sources)))
 
+      (define (instruction-count-reset)
+        (set! instruction-count 0)
+        'reset)
+      (define (set-tracing! value)
+        (set! tracing value)
+        (if value
+            'tracing-on
+            'tracing-off))
+
       (define (dispatch message)
         (cond ((eq? message 'start)
                (set-contents! pc the-instruction-sequence)
@@ -144,6 +174,10 @@
               ((eq? message 'info-add-reg-source) info-add-reg-source)
               ((eq? message 'get-information) (get-information))
               ((eq? message 'get-reg-source) info-get-reg-source)
+              ((eq? message 'instruction-count) instruction-count)
+              ((eq? message 'instruction-count-reset) (instruction-count-reset))
+              ((eq? message 'tracing-on) (set-tracing! true))
+              ((eq? message 'tracing-off) (set-tracing! false))
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -560,3 +594,45 @@
 ;; (assign n (reg val))
 ;; (restore val)
 ;; replaced with => (restore n)
+
+
+;; Exercise 5.14
+(define fact-1
+  (make-machine
+   (list (list '= =) (list '- -) (list '* *))
+   '(controller
+     (assign continue (label fact-done))     ; set up final return address
+     (perform (op initialise-stack))
+     fact-loop
+     (test (op =) (reg n) (const 1))
+     (branch (label base-case))
+     ;; Set up for the recursive call by saving n and continue.
+     ;; Set up continue so that the computation will continue
+     ;; at after-fact when the subroutine returns.
+     (save continue)
+     (save n)
+     (assign n (op -) (reg n) (const 1))
+     (assign continue (label after-fact))
+     (goto (label fact-loop))
+     after-fact
+     (restore n)
+     (restore continue)
+     (assign val (op *) (reg n) (reg val))   ; val now contains n(n - 1)!
+     (goto (reg continue))                   ; return to caller
+     base-case
+     (assign val (const 1))                  ; base case: 1! = 1
+     (goto (reg continue))                   ; return to caller
+     fact-done
+     (perform (op print-stack-statistics)))))
+
+
+(define (fact-stats-run n)
+  (if (= n 0)
+      'done
+      (begin
+        (newline)(newline)
+        (display "Running factorial func for n = ") (display n)
+        (run fact-1 (list (list 'n n)) 'val)
+        (fact-stats-run (- n 1)))))
+
+;; total-pushes = 2n - 2
