@@ -9,11 +9,28 @@
     machine))
 
 (define (make-register name)
-  (let ((contents '*unassigned*))
+  (let ((contents '*unassigned*)
+        (tracing false))
+    ;; Exercise 5.18
+    (define (set-tracing! value)
+      (set! tracing value)
+      (if value
+          'tracing-on
+          'tracing-off))
+    (define (trace-print value)
+      (newline)
+      (display "Changing ") (display name)
+      (display " from ") (display contents)
+      (display " to ") (display value))
+    (define (internal-set! value)
+      (if tracing
+          (trace-print value))
+      (set! contents value))
     (define (dispatch message)
       (cond ((eq? message 'get) contents)
-            ((eq? message 'set)
-             (lambda (value) (set! contents value)))
+            ((eq? message 'set) internal-set!)
+            ((eq? message 'tracing-on) (set-tracing! true))
+            ((eq? message 'tracing-off) (set-tracing! false))
             (else (error "Unknown request -- REGISTER" message))))
     dispatch))
 
@@ -64,6 +81,21 @@
 (define (push stack value)
   ((stack 'push) value))
 
+(define (make-breakpoint label n)
+  (let ((current-position n))
+    (lambda (message)
+      (cond ((eq? message 'decrement)
+             (set! current-position (- current-position 1)))
+            ((eq? message 'reset)
+             (set! current-position n))
+            ((eq? message 'label) label)
+            ((eq? message 'n) n)
+            ((eq? message 'current) current-position)
+            (else (error "Unknown BREAKPOINT message -- " message))))))
+
+(define (add-breakpoint machine label n)
+  ((machine 'add-breakpoint) label n))
+
 (define (add-sorted l x)
   ;; fairly naive
   (define (sort-iter x left-l right-l)
@@ -82,8 +114,9 @@
         (goto-registers '())
         (stack-registers '())
         (register-sources '())
-        (instruction-count 0)  ; exercise 5.15
-        (tracing false)) ; exercise 5.16
+        (instruction-count 0) ; exercise 5.15
+        (tracing false) ; exercise 5.16
+        (breakpoints '()))
     (let ((the-ops
            (list (list 'initialise-stack
                        (lambda () (stack 'initialise)))
@@ -106,12 +139,19 @@
               (cadr val)
               (allocate-register name))))
 
-       (define (execute)
+      (define (trace-func insts)        
+        (for-each (lambda (label)
+                    (newline) (display label))
+                  (instruction-labels (car insts)))
+        (newline) (display (instruction-text (car insts))))
+        
+      (define (execute)
         (let ((insts (get-contents pc)))
           (if (null? insts)
               'done
               (begin
-                (if tracing (begin (newline) (display (instruction-text (car insts)))))
+                (if tracing (trace-func insts))
+                ;; TODO: add breakpoint funciontality
                 ((instruction-execution-proc (car insts)))
                 (set! instruction-count (+ 1 instruction-count))
                 (execute)))))
@@ -147,11 +187,16 @@
       (define (instruction-count-reset)
         (set! instruction-count 0)
         'reset)
+
       (define (set-tracing! value)
         (set! tracing value)
         (if value
             'tracing-on
             'tracing-off))
+
+      (define (add-breakpoint label n)
+        (set! breakpoints
+              (cons (make-breakpoint label n) breakpoints)))
 
       (define (dispatch message)
         (cond ((eq? message 'start)
@@ -178,6 +223,7 @@
               ((eq? message 'instruction-count-reset) (instruction-count-reset))
               ((eq? message 'tracing-on) (set-tracing! true))
               ((eq? message 'tracing-off) (set-tracing! false))
+              ((eq? message 'add-breakpoint) add-breakpoint)
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -224,11 +270,14 @@
                         (let ((next-inst (car text)))
                           (if (symbol? next-inst)
                               ;; Exercise 5.8
-                              (if (assoc next-inst labels)
+                              (if (assoc next-inst labels) 
                                   (error "Label is already defined!" next-inst)
-                                  (receive
-                                   insts
-                                   (cons (make-label-entry next-inst insts) labels)))
+                                  (begin
+                                    (if (not (null? insts))
+                                        (add-instruction-label! (car insts) next-inst))
+                                    (receive
+                                      insts
+                                      (cons (make-label-entry next-inst insts) labels))))
                               (receive
                                (cons (make-instruction next-inst) insts)
                                labels)))))))
@@ -246,10 +295,16 @@
                                   pc flag stack ops)))
      insts)))
 
-(define (make-instruction text) (cons text '()))
+(define (make-instruction text) (cons text (cons '() '())))
 (define (instruction-text inst) (car inst))
-(define (instruction-execution-proc inst) (cdr inst))
-(define (set-instruction-execution-proc! inst proc) (set-cdr! inst proc))
+(define (instruction-execution-proc inst) (cadr inst))
+(define (instruction-labels inst) (cddr inst))
+(define (set-instruction-execution-proc! inst proc)
+  (set-car! (cdr inst) proc))
+(define (set-instruction-labels! inst labels)
+  (set-cdr! (cdr inst) labels))
+(define (add-instruction-label! inst label)
+  (set-instruction-labels! inst (cons label (instruction-labels inst))))
 
 (define (make-label-entry label-name insts)
   (cons label-name insts))
@@ -418,6 +473,19 @@
     (if val
         (cadr val)
         (error "Unknown operation -- ASSEMBLE" symbol))))
+
+;; Exercise 5.19
+(define (set-breakpoint machine label n)
+  'todo)
+
+(define (proceed-machine machine)
+  'todo)
+
+(define (cancel-breakpoint machine label n)
+  'todo)
+
+(define (cancel-all-breakpoints machine label n)
+  'todo)
 
 
 ;; shortcuts
