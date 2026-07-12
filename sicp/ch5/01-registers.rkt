@@ -1,5 +1,22 @@
 #lang sicp
 
+(define (flatmap f l)
+  (if (null? l)
+      '()
+      (append (f (car l))
+              (flatmap f (cdr l)))))
+
+(define (remove-item x l eq-func)
+  (define (remove-iter old-l new-l)
+    (cond ((null? old-l) new-l)
+          ((eq-func x (car old-l)) (append new-l (cdr old-l)))
+          (else (remove-iter (cdr old-l)
+                             (append new-l (list (car old-l)))))))
+  (remove-iter l '()))
+
+(define (remove-simple x l)
+  (remove-item x l (lambda (a b) (eq? a b))))
+
 ;; Machine model
 (define (make-machine ops controller-text)
   (let ((machine (make-new-machine)))
@@ -85,16 +102,14 @@
   (let ((current-position n))
     (lambda (message)
       (cond ((eq? message 'decrement)
-             (set! current-position (- current-position 1)))
+             (set! current-position (- current-position 1))
+             current-position)
             ((eq? message 'reset)
              (set! current-position n))
             ((eq? message 'label) label)
             ((eq? message 'n) n)
             ((eq? message 'current) current-position)
             (else (error "Unknown BREAKPOINT message -- " message))))))
-
-(define (add-breakpoint machine label n)
-  ((machine 'add-breakpoint) label n))
 
 (define (add-sorted l x)
   ;; fairly naive
@@ -116,7 +131,8 @@
         (register-sources '())
         (instruction-count 0) ; exercise 5.15
         (tracing false) ; exercise 5.16
-        (breakpoints '()))
+        (breakpoints '())
+        (current-bp-label 'none)) ; breakpoints under current label
     (let ((the-ops
            (list (list 'initialise-stack
                        (lambda () (stack 'initialise)))
@@ -139,22 +155,42 @@
               (cadr val)
               (allocate-register name))))
 
-      (define (trace-func insts)        
+      (define (trace-func inst)        
         (for-each (lambda (label)
                     (newline) (display label))
-                  (instruction-labels (car insts)))
-        (newline) (display (instruction-text (car insts))))
+                  (instruction-labels inst))
+        (newline) (display (instruction-text inst)))
+
+      (define (check-breaks inst)
+        (if (null? breakpoints)
+            false
+            (let* ((inst-label (instruction-labels inst))
+                   ;; just assume max one breakpoint per label
+                   (bp (assoc inst-label breakpoints)))
+              (cond ((not bp) false)
+                    ((= (bp 'current) 0) true)
+                    (else ((bp 'decrement)
+                           false))))))
+
+      ;; TODO: finish this
+      (define (break)
+        'break!)
+
+      (define (continue inst)
+        ((instruction-execution-proc inst))
+        (set! instruction-count (+ 1 instruction-count))
+        (execute))
         
       (define (execute)
         (let ((insts (get-contents pc)))
           (if (null? insts)
               'done
-              (begin
-                (if tracing (trace-func insts))
-                ;; TODO: add breakpoint funciontality
-                ((instruction-execution-proc (car insts)))
-                (set! instruction-count (+ 1 instruction-count))
-                (execute)))))
+              (let ((current-inst (car insts)))
+                (begin
+                  (if tracing (trace-func current-inst))
+                  (if (check-breaks current-inst)
+                      (break)
+                      (continue current-inst)))))))
 
       (define (info-add-instruction inst-tag)
         (if (not (memq inst-tag sorted-instructions))
@@ -194,10 +230,29 @@
             'tracing-on
             'tracing-off))
 
-      (define (add-breakpoint label n)
-        (set! breakpoints
-              (cons (make-breakpoint label n) breakpoints)))
+      (define (all-labels) (flatmap cddr the-instruction-sequence))
 
+      (define (add-breakpoint label n)
+        (define (valid-label? labels)
+          (cond ((null? labels) false)
+                ((eq? label (car labels)) true)
+                (else (valid-label? (cdr labels)))))
+        (if (valid-label? (all-labels))
+            (let ((bp-temp (cons label (make-breakpoint label n))))
+              (set! breakpoints (cons bp-temp breakpoints)))
+            (begin (display "Label not found in instructions: ")
+              (display label) (newline))))
+
+      ;; TODO: fix this
+      (define (remove-breakpoint label n)
+        (define (bp-eq x bp)
+          (and (eq? ((cdr bp) 'label) label)
+               (= ((cdr bp) 'n) n)))
+        (let ((bp (assoc label breakpoints)))
+          (if (not bp)
+              (error "Breakpoint not found -- " label)
+              (remove-item 'x breakpoints bp-eq))))
+      
       (define (dispatch message)
         (cond ((eq? message 'start)
                (set-contents! pc the-instruction-sequence)
@@ -224,6 +279,11 @@
               ((eq? message 'tracing-on) (set-tracing! true))
               ((eq? message 'tracing-off) (set-tracing! false))
               ((eq? message 'add-breakpoint) add-breakpoint)
+              ((eq? message 'list-breakpoints) breakpoints)
+              ((eq? message 'cancel-breakpoint) remove-breakpoint)
+              ((eq? message 'cancel-all-breakpoints)
+               (set! current-bp-label 'none)
+               (set! breakpoints '()))
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -476,16 +536,16 @@
 
 ;; Exercise 5.19
 (define (set-breakpoint machine label n)
-  'todo)
+  ((machine 'add-breakpoint) label n))
 
 (define (proceed-machine machine)
   'todo)
 
 (define (cancel-breakpoint machine label n)
-  'todo)
+  ((machine 'cancel-breakpoint) label n))
 
-(define (cancel-all-breakpoints machine label n)
-  'todo)
+(define (cancel-all-breakpoints machine)
+  (machine 'cancel-all-breakpoints))
 
 
 ;; shortcuts
