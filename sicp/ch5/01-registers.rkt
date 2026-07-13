@@ -6,16 +6,13 @@
       (append (f (car l))
               (flatmap f (cdr l)))))
 
-(define (remove-item x l eq-func)
+(define (remove-first-item l eq-func)
   (define (remove-iter old-l new-l)
     (cond ((null? old-l) new-l)
-          ((eq-func x (car old-l)) (append new-l (cdr old-l)))
+          ((eq-func (car old-l)) (append new-l (cdr old-l)))
           (else (remove-iter (cdr old-l)
                              (append new-l (list (car old-l)))))))
   (remove-iter l '()))
-
-(define (remove-simple x l)
-  (remove-item x l (lambda (a b) (eq? a b))))
 
 (define (contains? l x)
   (cond ((null? l) false)
@@ -140,7 +137,7 @@
         (instruction-count 0) ; exercise 5.15
         (tracing false) ; exercise 5.16
         (breakpoints '())
-        (current-bp-label 'none)) ; breakpoints under current label
+        (current-bp-label '*none*)) ; breakpoint under current label
     (let ((the-ops
            (list (list 'initialise-stack
                        (lambda () (stack 'initialise)))
@@ -195,8 +192,8 @@
 
       (define (break)
         (newline)
-        (display "Breakpoint hit, pausing execution.")(newline)
-        (display "Breakpoint label = ") (display current-bp-label))
+        (display "-> Breakpoint hit, pausing execution.")(newline)
+        (display "   Breakpoint label = ") (display current-bp-label))
       
       (define (continue inst)
         ((instruction-execution-proc inst))
@@ -253,7 +250,8 @@
             'tracing-off))
       
       (define (all-labels) (flatmap cddr the-instruction-sequence))
-      
+
+      ;; could add more validation here. prevent duplicates
       (define (add-breakpoint label n)
         (define (valid-label? labels)
           (cond ((null? labels) false)
@@ -266,23 +264,35 @@
             (begin (display "Label not found in instructions: ")
                    (display label) (newline))))
       
-      ;; TODO: fix this
       (define (remove-breakpoint label n)
-        (define (bp-eq x bp)
+        (define (bp-eq bp)
           (and (eq? ((cdr bp) 'label) label)
                (= ((cdr bp) 'n) n)))
         (let ((bp (assoc label breakpoints)))
           (if (not bp)
               (error "Breakpoint not found -- " label)
-              (remove-item 'x breakpoints bp-eq))))
+              (remove-first-item breakpoints bp-eq))))
       
       (define (proceed-execution)
         ;; reset breakpoints
         (for-each
          (lambda (bp) ((cdr bp) 'reset))
          breakpoints)
-        (set! current-bp-label 'none)
+        (set! current-bp-label '*none*)
         (execute))
+
+      ;; Other functionality: debug step
+
+      (define (print-breakpoints)
+        (for-each
+         (lambda (bp)
+           (let ((bp-proc (cdr bp)))
+             (display "(")(display (car bp))
+             (display " . ") (display "(") (display (bp-proc 'label))
+             (display " ")(display (bp-proc 'n))(display " ")
+             (display (bp-proc 'current)) (display ")")(newline)))
+         breakpoints))
+
       
       (define (dispatch message)
         (cond ((eq? message 'start)
@@ -310,10 +320,10 @@
               ((eq? message 'tracing-on) (set-tracing! true))
               ((eq? message 'tracing-off) (set-tracing! false))
               ((eq? message 'add-breakpoint) add-breakpoint)
-              ((eq? message 'list-breakpoints) breakpoints)
+              ((eq? message 'print-breakpoints) (print-breakpoints))
               ((eq? message 'cancel-breakpoint) remove-breakpoint)
               ((eq? message 'cancel-all-breakpoints)
-               (set! current-bp-label 'none)
+               (set! current-bp-label '*none*)
                (set! breakpoints '()))
               ((eq? message 'proceed) (proceed-execution))
               (else (error "Unknown request -- MACHINE" message))))
@@ -571,7 +581,7 @@
   ((machine 'add-breakpoint) label n))
 
 (define (proceed-machine machine)
-  ((machine 'proceed)))
+  (machine 'proceed))
 
 (define (cancel-breakpoint machine label n)
   ((machine 'cancel-breakpoint) label n))
@@ -799,4 +809,4 @@
 
 (define (debug)
   (fact-1 'tracing-on)
-  (set-breakpoint fact-1 'fact-loop 0))
+  (set-breakpoint fact-1 'fact-loop 1))
