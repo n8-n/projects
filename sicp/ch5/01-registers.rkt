@@ -17,6 +17,14 @@
 (define (remove-simple x l)
   (remove-item x l (lambda (a b) (eq? a b))))
 
+(define (contains? l x)
+  (cond ((null? l) false)
+        ((eq? (car l) x) true)
+        (else (cdr l) x)))
+
+(define (final l)
+  (if (null? l) '() (car (reverse l))))
+
 ;; Machine model
 (define (make-machine ops controller-text)
   (let ((machine (make-new-machine)))
@@ -140,7 +148,7 @@
                        (lambda () (stack 'print-statistics)))))
           (register-table
            (list (list 'pc pc) (list 'flag flag))))
-      
+
       (define (allocate-register name)
         (if (assoc name register-table)
             (error "Multiply defined register: " name)
@@ -154,33 +162,47 @@
           (if val
               (cadr val)
               (allocate-register name))))
-
-      (define (trace-func inst)        
+      
+      (define (trace-func inst)
         (for-each (lambda (label)
                     (newline) (display label))
                   (instruction-labels inst))
         (newline) (display (instruction-text inst)))
-
+      
       (define (check-breaks inst)
-        (if (null? breakpoints)
-            false
-            (let* ((inst-label (instruction-labels inst))
-                   ;; just assume max one breakpoint per label
-                   (bp (assoc inst-label breakpoints)))
-              (cond ((not bp) false)
-                    ((= (bp 'current) 0) true)
-                    (else ((bp 'decrement)
-                           false))))))
+        "Return true if should break on instruction"
+        (let* ((inst-labels (instruction-labels inst))
+               (has-label (not (null? inst-labels)))
+               (latest-label (final inst-labels))
+               (current-bp (assoc current-bp-label breakpoints))
+               (should-set-new (and has-label (not (eq? latest-label current-bp-label)))))
+          (cond ((null? breakpoints) false)
+                (should-set-new
+                 (let ((new-bp (assoc latest-label breakpoints)))
+                   (if (not new-bp)
+                       false
+                       (begin
+                         (let ((bp-proc (cdr new-bp)))
+                           (set! current-bp-label latest-label)
+                           (bp-proc 'reset)
+                           (bp-proc 'decrement)
+                           (= (bp-proc 'current) -1))))))
+                (current-bp ; exists
+                 (let ((bp-proc (cdr current-bp)))
+                   (bp-proc 'decrement)
+                   (= (bp-proc 'current) -1))) ;decide if we break
+                (else false)))) ; possible?
 
-      ;; TODO: finish this
       (define (break)
-        'break!)
-
+        (newline)
+        (display "Breakpoint hit, pausing execution.")(newline)
+        (display "Breakpoint label = ") (display current-bp-label))
+      
       (define (continue inst)
         ((instruction-execution-proc inst))
         (set! instruction-count (+ 1 instruction-count))
         (execute))
-        
+
       (define (execute)
         (let ((insts (get-contents pc)))
           (if (null? insts)
@@ -191,7 +213,7 @@
                   (if (check-breaks current-inst)
                       (break)
                       (continue current-inst)))))))
-
+      
       (define (info-add-instruction inst-tag)
         (if (not (memq inst-tag sorted-instructions))
             (set! sorted-instructions (add-sorted sorted-instructions inst-tag))))
@@ -213,36 +235,37 @@
               (set! register-sources (cons (list reg (list expr)) register-sources)))))
       (define (info-get-reg-source reg)
         (assoc reg register-sources))
-
+      
       (define (get-information)
         (list (list 'sorted-instructions sorted-instructions)
               (list 'goto-registers goto-registers)
               (list 'stack-registers stack-registers)
               (list 'register-sources register-sources)))
-
+      
       (define (instruction-count-reset)
         (set! instruction-count 0)
         'reset)
-
+      
       (define (set-tracing! value)
         (set! tracing value)
         (if value
             'tracing-on
             'tracing-off))
-
+      
       (define (all-labels) (flatmap cddr the-instruction-sequence))
-
+      
       (define (add-breakpoint label n)
         (define (valid-label? labels)
           (cond ((null? labels) false)
                 ((eq? label (car labels)) true)
                 (else (valid-label? (cdr labels)))))
         (if (valid-label? (all-labels))
-            (let ((bp-temp (cons label (make-breakpoint label n))))
+            (let* ((max-n (max n 0))
+                   (bp-temp (cons label (make-breakpoint label max-n))))
               (set! breakpoints (cons bp-temp breakpoints)))
             (begin (display "Label not found in instructions: ")
-              (display label) (newline))))
-
+                   (display label) (newline))))
+      
       ;; TODO: fix this
       (define (remove-breakpoint label n)
         (define (bp-eq x bp)
@@ -252,6 +275,14 @@
           (if (not bp)
               (error "Breakpoint not found -- " label)
               (remove-item 'x breakpoints bp-eq))))
+      
+      (define (proceed-execution)
+        ;; reset breakpoints
+        (for-each
+         (lambda (bp) ((cdr bp) 'reset))
+         breakpoints)
+        (set! current-bp-label 'none)
+        (execute))
       
       (define (dispatch message)
         (cond ((eq? message 'start)
@@ -284,6 +315,7 @@
               ((eq? message 'cancel-all-breakpoints)
                (set! current-bp-label 'none)
                (set! breakpoints '()))
+              ((eq? message 'proceed) (proceed-execution))
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
 
@@ -539,7 +571,7 @@
   ((machine 'add-breakpoint) label n))
 
 (define (proceed-machine machine)
-  'todo)
+  ((machine 'proceed)))
 
 (define (cancel-breakpoint machine label n)
   ((machine 'cancel-breakpoint) label n))
@@ -764,3 +796,7 @@
         (fact-stats-run (- n 1)))))
 
 ;; total-pushes = 2n - 2
+
+(define (debug)
+  (fact-1 'tracing-on)
+  (set-breakpoint fact-1 'fact-loop 0))
