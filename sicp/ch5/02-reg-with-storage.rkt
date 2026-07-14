@@ -810,3 +810,61 @@
 ;; (define (debug)
 ;;   (fact-1 'tracing-on)
 ;;   (set-breakpoint fact-1 'fact-loop 1))
+
+
+
+;; ------------------------------------------
+;; Storage allocation and garbage collection
+;; ------------------------------------------
+
+
+
+
+;; Exercise 5.21
+(define count-leaves
+  (make-machine
+   (list (list 'null? null?) (list 'pair? pair?) (list '+ +) (list 'not not)
+         (list 'car car) (list 'cdr cdr))
+   '(controller
+     (assign continue (label count-done))
+     count-loop
+     (test (op null?) (reg tree)) ; null check
+     (branch (label null-case))
+     (assign temp (op pair?) (reg tree)) ; leaf check
+     (test (op not) (reg temp))
+     (branch (label leaf-case))
+     ;; else case
+     (save continue)
+     (save tree)
+     (assign continue (label after-count-car))
+     (assign tree (op car) (reg tree))
+     (goto (label count-loop))
+     after-count-car
+     (restore tree)
+     (assign tree (op cdr) (reg tree))
+     (assign continue (label after-count-cdr))
+     (save val)
+     (goto (label count-loop))
+     after-count-cdr
+     (assign temp (reg val))
+     (restore val)
+     (assign val (op +) (reg temp) (reg val))
+     (restore continue)
+     (goto (reg continue))
+     null-case
+     (assign val (const 0))
+     (goto (reg continue))
+     leaf-case
+     (assign val (const 1))
+     (goto (reg continue))
+     count-done)))
+
+
+(define test-prog
+  (make-machine
+   (list (list '+ +))
+   '(controller
+     (assign n (const 10))
+     (assign n2 (const 20))
+     (assign n3 (const 40))
+     (assign n (op +) (reg n) (reg n2) (reg n3)))))
