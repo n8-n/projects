@@ -860,11 +860,38 @@
      count-done)))
 
 
-(define test-prog
+;; TODO
+(define count-leaves-2
   (make-machine
-   (list (list '+ +))
+   (list (list 'null? null?) (list 'pair? pair?) (list '+ +) (list 'not not)
+         (list 'car car) (list 'cdr cdr))
    '(controller
-     (assign n (const 10))
-     (assign n2 (const 20))
-     (assign n3 (const 40))
-     (assign n (op +) (reg n) (reg n2) (reg n3)))))
+     (assign continue (label count-done))
+     (assign val (const 0)) ;; n accumulator
+     count-loop
+     (test (op null?) (reg tree))
+     (branch (label null-case))
+     (assign temp (op pair?) (reg tree))
+     (test (op not) (reg temp))
+     (branch (label leaf-case))
+     ;; else case
+     ;; set up for car tree
+     (save continue)
+     (save tree)
+     (assign continue (label after-car))
+     (assign tree (op car) (reg tree))
+     (goto (label count-loop))
+     after-car
+     (restore tree)
+     (restore continue)
+     (assign tree (op cdr) (reg tree))
+     (goto (reg continue))
+     null-case
+     (goto (reg continue))
+     leaf-case
+     (assign val (op +) (reg val) (const 1))
+     (goto (reg continue))
+     count-done)))
+
+
+(define t '((3) . ((2 . 3) . ((5) . (4 . 1))))) ; 6 leaves
