@@ -810,3 +810,13 @@
 ;; (define (debug)
 ;;   (fact-1 'tracing-on)
 ;;   (set-breakpoint fact-1 'fact-loop 1))
+
+
+
+(#%provide
+  make-machine
+  run
+  grc
+  src!
+  start
+  get-register)
