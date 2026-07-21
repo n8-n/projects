@@ -329,3 +329,56 @@
 
 (define the-global-environment (setup-environment))
 (driver-loop)
+
+
+
+
+(#%provide
+ self-evaluating? 
+ quoted?
+ assignment? 
+ definition?
+ if? 
+ lambda? 
+ begin?
+ application? 
+ variable?
+ lookup-variable-value 
+ ;;empty-arglist
+ text-of-quotation 
+ lambda-parameters
+ lambda-body 
+ make-procedure
+ operands 
+ operator 
+ no-operands?
+ first-operand 
+ ;;last-operand?
+;; adjoin-arg 
+ rest-operands
+ primitive-procedure? 
+ first-exp
+ compound-procedure? 
+ begin-actions
+ apply-primitive-procedure
+ procedure-parameters 
+ last-exp?
+ procedure-environment 
+ rest-exps
+ extend-environment 
+ procedure-body
+ if-predicate 
+ if-alternative
+ if-consequent 
+ assignment-variable
+ assignment-value 
+ set-variable-value!
+ definition-variable 
+ definition-value
+ define-variable! 
+ cond->if
+ ;; get-global-environment
+ setup-environment
+ prompt-for-input 
+ announce-output
+ user-print)
