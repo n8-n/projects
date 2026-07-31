@@ -1,7 +1,13 @@
 #lang sicp
 
 (#%require "01-registers.rkt")
+
+;; for most scheme eval functions
 (#%require "../ch4/evaluator_base.rkt")
+
+;; for let->combination
+(#%require "../ch4/evaluator.rkt")
+
 
 (define (empty-arglist) '())
 
@@ -38,7 +44,9 @@
         (list 'define-variable! define-variable!) (list 'cond->if cond->if)
         (list 'get-global-environment get-global-environment) (list 'read read)
         (list 'prompt-for-input prompt-for-input) (list 'announce-output announce-output)
-        (list 'user-print user-print) (list 'true? true?)
+        (list 'user-print user-print) (list 'true? true?) (list 'cond? cond?)
+        (list 'let->combination let->combination) (list 'let? let?) (list 'let*? let*?)
+        (list 'let*->nested-lets let*->nested-lets)
         ))
 
 
@@ -83,6 +91,14 @@
      (branch (label ev-definition))
      (test (op if?) (reg exp))
      (branch (label ev-if))
+     ;; exercise 5.23
+     ;; just doing cond, let, and let*
+     (test (op cond?) (reg exp))
+     (branch (label ev-cond))
+     (test (op let?) (reg exp))
+     (branch (label ev-let))
+     (test (op let*?) (reg exp))
+     (branch (label ev-let*))
      (test (op lambda?) (reg exp))
      (branch (label ev-lambda))
      (test (op begin?) (reg exp))
@@ -216,6 +232,25 @@
      (goto (label eval-dispatch))
      ev-if-consequent
      (assign exp (op if-consequent) (reg exp))
+     (goto (label eval-dispatch))
+
+     ;; ev-cond
+     ;; (assign exp (op cond->if) (reg exp))
+     ;; (goto (label eval-dispatch))
+
+     ;; exercise 5.24
+     ev-cond
+     ;; save exp, continue (and env?)
+     ;; similar to ev-if-decide
+     ;; need methods to take parts of cond statement
+     ;; make sure to eval sequence rather than single statement
+
+     ev-let
+     (assign exp (op let->combination) (reg exp))
+     (goto (label eval-dispatch))
+
+     ev-let*
+     (assign exp (op let*->nested-lets) (reg exp))
      (goto (label eval-dispatch))
      
      ev-assignment

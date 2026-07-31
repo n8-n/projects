@@ -382,4 +382,5 @@
  prompt-for-input 
  announce-output
  user-print
- true?)
+ true?
+ cond?)

@@ -468,6 +468,9 @@
 (define (let-split-get-vars split) (car split))
 (define (let-split-get-exps split) (cadr split))
 
+(define (let? exp) (tagged-list? exp 'let))
+(define (let*? exp) (tagged-list? exp 'let*))
+
 (define (make-let-lambda vars body expressions)
   (append (list (list 'lambda vars body)) expressions))
 
@@ -645,6 +648,12 @@
 
 
 (define the-global-environment (setup-environment))
-(install-eval-expressions)
-(driver-loop)
+;;(install-eval-expressions)
+;;(driver-loop)
 
+
+(#%provide
+ let?
+ let*?
+ let->combination
+ let*->nested-lets)
