@@ -20,6 +20,11 @@
 (define (adjoin-arg arg arglist)
   (append arglist (list arg)))
 
+(define (cond-predicate exp) (car exp))
+(define (cond-actions exp) (cdr exp))
+(define (cond-statements exp) (cdr exp))
+(define (else? exp) (eq? (cond-predicate exp) 'else))
+
 (define eceval-operations
   (list (list 'self-evaluating? self-evaluating?) (list 'quoted? quoted?)
         (list 'assignment? assignment?) (list 'definition? definition?)
@@ -46,7 +51,9 @@
         (list 'prompt-for-input prompt-for-input) (list 'announce-output announce-output)
         (list 'user-print user-print) (list 'true? true?) (list 'cond? cond?)
         (list 'let->combination let->combination) (list 'let? let?) (list 'let*? let*?)
-        (list 'let*->nested-lets let*->nested-lets)
+        (list 'let*->nested-lets let*->nested-lets) (list 'cond-predicate cond-predicate)
+        (list 'cond-actions cond-actions) (list 'cond-statements cond-statements)
+        (list 'else? else?)
         ))
 
 
@@ -240,11 +247,38 @@
 
      ;; exercise 5.24
      ev-cond
-     ;; save exp, continue (and env?)
-     ;; similar to ev-if-decide
-     ;; need methods to take parts of cond statement
-     ;; make sure to eval sequence rather than single statement
+     (assign exp (op cond-statements) (reg exp))
+     ev-cond-loop
+     (save exp)
+     (save env)
+     (save continue)
+     (assign continue (label ev-cond-decide))
+     (assign exp (op first-exp) (reg exp))
+     (test (op else?) (reg exp))
+     (branch (label ev-else))
+     (assign exp (op cond-predicate) (reg exp))
+     (goto (label eval-dispatch)) ; eval predicate
 
+     ev-cond-decide
+     (restore continue)
+     (restore env)
+     (restore exp)
+     (test (op true?) (reg val))
+     (branch (label ev-predicate-true))
+     (assign exp (op rest-exps) (reg exp))
+     (goto (label ev-cond-loop))
+
+     ev-predicate-true
+     (assign exp (op first-exp) (reg exp))
+     (assign unev (op cond-actions) (reg exp))
+     (save continue)
+     (goto (label ev-sequence))
+
+     ;; else is always true
+     ev-else     
+     (assign val (const true))
+     (goto (reg continue))
+     
      ev-let
      (assign exp (op let->combination) (reg exp))
      (goto (label eval-dispatch))
@@ -288,4 +322,11 @@
      (goto (reg continue)))))
 
 
+;;(evaluator 'tracing-on)
 (start evaluator)
+
+(define test-cond
+  '(define (test a)
+     (cond ((= a 10) 100)
+           ((= a 20) 2)
+           (else 333))))
