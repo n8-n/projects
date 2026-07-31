@@ -328,7 +328,7 @@
       (display object)))
 
 (define the-global-environment (setup-environment))
-(driver-loop)
+;;(driver-loop)
 
 
 
@@ -381,4 +381,5 @@
  setup-environment
  prompt-for-input 
  announce-output
- user-print)
+ user-print
+ true?)

@@ -3,17 +3,16 @@
 (#%require "01-registers.rkt")
 (#%require "../ch4/evaluator_base.rkt")
 
-(define (empty-arglist)
-  'todo)
+(define (empty-arglist) '())
 
-(define (get-global-environment)
-  'todo)
+(define the-global-environment (setup-environment))
+(define (get-global-environment) the-global-environment)
 
 (define (last-operand? args)
-  'todo)
+  (car (reverse args)))
 
-(define (adjoin-arg val argl)
-  'todo)
+(define (adjoin-arg args new-arg)
+  (append args (list new-arg)))
 
 (define eceval-operations
   (list (list 'self-evaluating? self-evaluating?) (list 'quoted? quoted?)
@@ -39,7 +38,7 @@
         (list 'define-variable! define-variable!) (list 'cond->if cond->if)
         (list 'get-global-environment get-global-environment) (list 'read read)
         (list 'prompt-for-input prompt-for-input) (list 'announce-output announce-output)
-        (list 'user-print user-print)
+        (list 'user-print user-print) (list 'true? true?)
         ))
 
 
@@ -100,7 +99,7 @@
      (goto (reg continue))
      ev-lambda
      (assign unev (op lambda-parameters) (reg exp))
-     (assign exp (op lamda-body) (reg exp))
+     (assign exp (op lambda-body) (reg exp))
      (assign val (op make-procedure) (reg unev) (reg exp) (reg env))
      (goto (reg continue))
 
@@ -130,7 +129,7 @@
      (save env)
      (save unev)
      (assign continue (label ev-appl-accumulate-arg))
-     (goto (label eval-dispath))
+     (goto (label eval-dispatch))
 
      ev-appl-accumulate-arg
      (restore unev)
@@ -142,7 +141,7 @@
 
      ev-appl-last-arg
      (assign continue (label ev-appl-accum-last-arg))
-     (goto (lavel eval-dispatch))
+     (goto (label eval-dispatch))
      ev-appl-accum-last-arg
      (restore argl)
      (assign argl (op adjoin-arg) (reg val) (reg argl))
@@ -180,7 +179,7 @@
      (save unev)
      (save env)
      (assign continue (label ev-sequence-continue))
-     (goto (label eval-dispath))
+     (goto (label eval-dispatch))
 
      ev-sequence-continue
      (restore env)
@@ -209,7 +208,7 @@
      (assign exp (op if-alternative) (reg exp))
      (goto (label eval-dispatch))
      ev-if-consequent
-     (assign (exp (op if-consequent) (reg exp)))
+     (assign exp (op if-consequent) (reg exp))
      (goto (label eval-dispatch))
      
      ev-assignment
@@ -218,7 +217,7 @@
      (assign exp (op assignment-value) (reg exp))
      (save env)
      (save continue)
-     (assign continue (label ev-assignemtn-1))
+     (assign continue (label ev-assignment-1))
      (goto (label eval-dispatch))
      ev-assignment-1
      (restore continue)
@@ -243,3 +242,6 @@
      (perform (op define-variable!) (reg unev) (reg val) (reg env))
      (assign val (const ok))
      (goto (reg continue)))))
+
+
+;;(start evaluator)

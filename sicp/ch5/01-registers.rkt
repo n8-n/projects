@@ -391,6 +391,7 @@
         (ops (machine 'operations)))
     (for-each
      (lambda (inst)
+       ;; (display inst)(newline) ;; helps with debugging machine building
        (set-instruction-execution-proc!
         inst
         (make-execution-procedure (instruction-text inst) labels machine
