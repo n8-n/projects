@@ -69,6 +69,7 @@
      (assign continue (label print-result))
      (goto (label eval-dispatch))
      print-result
+     (perform (op print-stack-statistics))
      (perform
       (op announce-output) (const ";;; EC-Eval value:"))
      (perform (op user-print) (reg val))
@@ -330,3 +331,13 @@
      (cond ((= a 10) 100)
            ((= a 20) 2)
            (else 333))))
+
+
+;; Exercise 5.26
+;; a. Maximum depth for iterative factorial is 10
+;; b. pushes = 64 + 35(n - 1)
+
+
+;; Exercise 5.27
+;; pushes = 16 + 32(n - 1)
+;; depth = 8 + 5(n - 1)
