@@ -72,22 +72,132 @@
               (reg env))))))
 
 (define (compile-assignment exp target linkage)
-  'todo)
+  (let ((var (assignment-variable exp))
+        (get-value-code
+         (compile (assignment-value exp) 'val 'next)))
+    (end-with-linkage
+     linkage
+     (preserving
+      '(env) get-value-code
+      (make-instruction-sequence
+       '(env val) (list target)
+       `((perform (op set-variable-value!)
+                  (const ,var)
+                  (reg val)
+                  (reg env))
+         (assign ,target (const ok))))))))
 
 (define (compile-definition exp target linkage)
-  'todo)
+  (let ((var (definition-variable exp))
+        (get-value-code
+         (compile (definition-value exp) 'val 'next)))
+    (end-with-linkage
+     linkage
+     (preserving
+      '(env) get-value-code
+      (make-instruction-sequence
+       '(env val) (list target)
+       `((perform (op define-variable!)
+                  (const ,var)
+                  (reg val)
+                  (reg env))
+         (assign ,target (const ok))))))))
 
 (define (compile-if exp target linkage)
+  (let ((t-branch (make-label 'true-branch))
+        (f-branch (make-label 'false-branch))
+        (after-if (make-label 'after-if)))
+    (let ((consequent-linkage
+           (if (eq? linkage 'next) after-if linkage)))
+      (let ((p-code (compile (if-predicate exp) 'val 'next))
+            (c-code (compile (if-consequent exp)
+                             target
+                             consequent-linkage))
+            (a-code (compile (if-alternative exp) target linkage)))
+        (preserving
+         '(env continue) p-code
+         (append-instruction-sequences
+          (make-instruction-sequence
+           '(val) '()
+           `((test (op false?) (reg val))
+             (branch (label ,f-branch))))
+          (parallel-instruction-sequence
+           (append-instruction-sequences t-branch c-code)
+           (append-instruction-sequences f-branch a-code))
+          after-if))))))
+
+
+(define (make-label label)
   'todo)
 
 (define (compile-lambda exp target linkage)
-  'todo)
+  (let ((proc-entry (make-label 'entry))
+        (after-lambda (make-label 'after-lambda)))
+    (let ((lambda-linkage
+           (if (eq? linkage 'next) after-lambda linkage)))
+      (append-instruction-sequences
+       (tack-on-instruction-sequence
+        (end-with-linkage
+         lambda-linkage
+         (make-instruction-sequence
+          '(env) (list target)
+          `((assign ,target
+                    (op make-compiled-procedure)
+                    (label ,proc-entry)
+                    (reg env)))))
+        (compile-lambda-body exp proc-entry))
+       after-lambda))))
 
-(define (compile-sequence exp target linkage)
-  'todo)
+(define (compile-lambda-body exp proc-entry)
+  (let ((formals (lambda-parameters exp)))
+    (append-instruction-sequences
+     (make-instruction-sequence
+      '(env proc argl) '(env)
+      `(,proc-entry
+        (assign env (op compiled-procedure-env) (reg proc))
+        (assign env
+                (op extend-environment)
+                (const ,formals)
+                (reg argl)
+                (reg env))))
+     (compile-sequence (lambda-body exp) 'val 'return))))
+
+(define (compile-sequence seq target linkage)
+  (if (last-exp? seq)
+      (compile (first-exp seq) target linkage)
+      (preserving
+       '(env continue)
+       (compile (first-exp seq) target 'next)
+                       (compile-sequence (rest-exps seq) target linkage))))
 
 (define (compile-application exp target linkage)
+  (let ((proc-code (compile (operator exp) 'proc 'next))
+        (operand-codes
+         (map (lambda (op) (compile op 'val 'next))
+              (operands exp))))
+    (preserving
+     '(env continue)
+     proc-code
+     (preserving
+      '(proc continue)
+      (construct-arglist operand-codes)
+      (compile-procedure-call target linkage)))))
+
+;; TODO
+(define (construct-arglist args)
+  'todo)
+
+(define (compile-procedure-call target linkage)
   'todo)
 
 (define (preserving regs seq1 seq2)
+  'todo)
+
+(define (append-instruction-sequences label code)
+  'todo)
+
+(define (parallel-instruction-sequence seq1 seq2)
+  'todo)
+
+(define (tack-on-instruction-sequence seq1 seq2)
   'todo)
