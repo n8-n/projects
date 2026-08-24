@@ -2,6 +2,7 @@
 
 ;; for most scheme eval functions
 (#%require "../ch4/evaluator_base.rkt")
+(#%require "01-registers.rkt")
 
 (define all-regs '(env proc val argl continue))
 (define label-counter 0)
@@ -233,7 +234,7 @@
 (define (compile-procedure-call target linkage)
   (let ((primitive-branch (make-label 'primitive-branch))
         (compiled-branch (make-label 'compiled-branch))
-        (after-call (make-label 'compiled-branch)))
+        (after-call (make-label 'after-call)))
     (let ((compiled-linkage
            (if (eq? linkage 'next) after-call linkage)))
       (append-instruction-sequences
