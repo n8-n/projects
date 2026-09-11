@@ -13,5 +13,16 @@ CHIP PC {
     OUT out[16];
     
     PARTS:
-    //// Replace this comment with your code.
+    // determine if counter should be updated
+    Or(a=reset, b=load, out=loadTemp);
+    Or(a=loadTemp, b=inc, out=shouldLoad);
+
+    // determine value of counter
+    Inc16(in=regValue, out=incremented);
+    Mux16(a=in, b=incremented, sel=inc, out=inputTemp0);
+    Mux16(a=incremented, b=in, sel=load, out=inputTemp1);
+    Mux16(a=inputTemp1, b=false, sel=reset, out=processedInput);
+
+    Register(in=processedInput, load=shouldLoad, out=out, 
+        out=regValue);
 }
