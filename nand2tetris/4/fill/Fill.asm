@@ -8,45 +8,61 @@
 // the screen should be cleared.
 
 
-// get screen address and store in R0, 
-// which will be used as an address counter
-@SCREEN
-D=A
-@screenAddress
-M=D
+(INIT)
+    // get screen address and store in R0, 
+    // which will be used as an address counter
+    @SCREEN
+    D=A
+    @screenAddress
+    M=D
 
-// final screen address constant
-@8192
-D=A
-@finalAddress
-M=D // init finalAddress to 8192
+    // final screen address constant
+    @8192
+    D=A
+    @finalAddress
+    M=D // init finalAddress to 8192
 
-@screenAddress
-D=M
-@finalAddress
-M=D+M   // set finalAddress to end of screenMemory (16384 + 8192)
+    @screenAddress
+    D=M
+    @finalAddress
+    M=D+M   // set finalAddress to end of screenMemory (16384 + 8192)
+
+    // set colour to paint.
+    // -1 = 16 bit number with all 1s = black
+    // 0 = all 0s = white
+    // We will set colour here to avoid constant checks in the main loop.
+    @KBD
+    D=M
+    @BLACK
+    D;JNE
+    // if keyboard memory is zero, set to white
+    @colour
+    M=0
+    @LOOP
+    0;JMP
+    (BLACK)
+    @colour
+    M=-1
+    
 
 (LOOP)
-    // End if we've reached final address
+    // Reset if we've reached final address
     @screenAddress
     D=M
     @finalAddress
     D=D-M
-    @END
+    @INIT
     D;JEQ
 
-    // paint it black
+    // paint pixels
+    @colour
+    D=M
     @screenAddress
     A=M
-    M=1 
-    M=-M    // -1 = 16 bit number with all 1s
+    M=D 
 
     @screenAddress
     M=M+1
 
     @LOOP
-    0;JMP
-
-(END)
-    @END
     0;JMP
