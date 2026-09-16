@@ -38,8 +38,11 @@ CHIP Memory {
     //Mux16(a=outScreen0, b=outScreen1, sel=address[12], out=outScreen);
 
     // single memory location for key
-    Register(in=in, load=key, out=outKey);
+    Register(in=inKey, load=key, out=outKey1, out=outKey);
+    Keyboard(out=inKey);
 
-    Mux4Way16(a=outRam, b=outScreen0, c=outScreen1, d=outKey, 
-        sel=address[13..14], out=out);
+    // Screen(in= , load= , address= , out= );
+
+    //Mux4Way16(a=outRam, b=outScreen0, c=outScreen1, d=outKey, 
+    //    sel=address[13..14], out=out);
 }
