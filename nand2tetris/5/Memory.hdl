@@ -24,25 +24,16 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Figure out which memory block to load into
-    DMux(in=load, sel=address[14], a=ram, b=ioTemp);
-    DMux(in=load, sel=address[13], a=screen, b=keyTemp);
-    And(a=ioTemp, b=keyTemp, out=key);
-
-    RAM16K(in=in, load=ram, address=address[0..13], out=outRam);
-
-    // two 4k blocks for 8k screen memory
-    DMux(in=key, sel=address[12], a=screenBlock0, b=screenBlock1);
-    RAM4K(in=in, load=screenBlock0, address=address[0..11], out=outScreen0);
-    RAM4K(in=in, load=screenBlock1, address=address[0..11], out=outScreen1);
-    //Mux16(a=outScreen0, b=outScreen1, sel=address[12], out=outScreen);
+    // Load into RAM or screen memory
+    DMux(in=load, sel=address[14], a=ramLoad, b=screenLoad);
+    RAM16K(in=in, load=ramLoad, address=address[0..13], out=outRam);
+    Screen(in=in, load=screenLoad, address=address[0..12], out=outScreen);
 
     // single memory location for key
-    Register(in=inKey, load=key, out=outKey1, out=outKey);
     Keyboard(out=inKey);
+    Register(in=inKey, load=true, out=outKey);
 
-    // Screen(in= , load= , address= , out= );
-
-    //Mux4Way16(a=outRam, b=outScreen0, c=outScreen1, d=outKey, 
-    //    sel=address[13..14], out=out);
+    // Determine output
+    Mux16(a=outScreen, b=outKey, sel=address[13], out=outIo);
+    Mux16(a=outRam, b=outIo, sel=address[14], out=out);
 }
