@@ -24,5 +24,22 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-	//// Replace this comment with your code.
+    // Figure out which memory block to load into
+    DMux(in=load, sel=address[14], a=ram, b=ioTemp);
+    DMux(in=load, sel=address[13], a=screen, b=keyTemp);
+    And(a=ioTemp, b=keyTemp, out=key);
+
+    RAM16K(in=in, load=ram, address=address[0..13], out=outRam);
+
+    // two 4k blocks for 8k screen memory
+    DMux(in=key, sel=address[12], a=screenBlock0, b=screenBlock1);
+    RAM4K(in=in, load=screenBlock0, address=address[0..11], out=outScreen0);
+    RAM4K(in=in, load=screenBlock1, address=address[0..11], out=outScreen1);
+    //Mux16(a=outScreen0, b=outScreen1, sel=address[12], out=outScreen);
+
+    // single memory location for key
+    Register(in=in, load=key, out=outKey);
+
+    Mux4Way16(a=outRam, b=outScreen0, c=outScreen1, d=outKey, 
+        sel=address[13..14], out=out);
 }
