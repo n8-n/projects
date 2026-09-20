@@ -1,2 +1,2 @@
 # Dev Projects
-Miscellaneous small projects, exercises etc.
+Contains: small projects, scratch notes, tutorials, book exercises etc.
