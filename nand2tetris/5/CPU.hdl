@@ -31,5 +31,26 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+    
+    /* Decode the instruction
+        A instruction => 15-bit memory address
+        C instruction => c bits = ALU command
+                         d bits = destination registers
+                         j bits = PC jump
+        
+        If A, load address into A registers
+        If C, send to ALU
+    */
+
+
+    /* How to do jump instructions? check ALU output
+        - all zeros, no jump
+        - all ones, jump
+        - otherwise, need three determination functions: > 0, = 0, < 0
+            - ALU provides these!
+    */
+    
+    /* Dest decoding: can send to A, D, and/or M
+        - use some DMUXs to figure out where to load?
+    */
 }
