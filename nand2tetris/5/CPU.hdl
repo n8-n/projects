@@ -31,23 +31,19 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    /* Decode the instruction
+        /* Decode the instruction
         A instruction => 15-bit memory address
         C instruction => c bits = ALU command
                          d bits = destination registers
                          j bits = PC jump
-        
-        If A, load address into A registers
-        If C, send to ALU
 
         C instruction fields:
         C[15] = 1
         C[12] = a
         C[6..11] = c1 -> c6 (high to low)
         C[3..5] = d1 -> d3
-        C[2..0] = j1 -> j3
+        C[0..2] = j1 -> j3
     */
-
 
     /* How to do jump instructions? check ALU output
         - all zeros, no jump
@@ -55,25 +51,27 @@ CHIP CPU {
         - otherwise, need three determination functions: > 0, = 0, < 0
             - ALU provides these!
     */
-    
-    /* Dest decoding: can send to A, D, and/or M
-        - use some DMUXs to figure out where to load?
-    */
+
 
     // Instruction decoding
     DMux(in=true, sel=instruction[15], a=aInstr, b=cInstr);
     And(a=cInstr, b=instruction[5], out=loadATemp);
     Or(a=aInstr, b=loadATemp, out=loadA);
-    And(a=cInstr, b=instruction[6], out=loadD);
-    And(a=cInstr, b=instruction[7], out=loadM);
+    And(a=cInstr, b=instruction[4], out=loadD);
+    And(a=cInstr, b=instruction[3], out=writeM);
 
-
-    Register(in[0..14]=instruction[0..14], load=loadA, out=outA); // A
-    Register(in=outALU, load=loadA, out=outD); // D
+    // A and D registers
+    Register(in=instruction, load=loadA, out=outA, out[0..14]=addressM); // A
+    Register(in=outALU, load=loadD, out=outD); // D
     
     // Select between A or M for ALU input
-    Mux16(a=outA, b=inM, sel=instruction[3], out=amALU);
+    Mux16(a=outA, b=inM, sel=instruction[12], out=amALU);
+
     ALU(x=outD, y=amALU, zx=instruction[11], nx=instruction[10], 
         zy=instruction[9], ny=instruction[8], f=instruction[7], 
         no=instruction[6], out=outM, out=outALU, zr=zero, ng=neg);
+
+    // jump checks
+
+    PC(in=outA, load=false, inc=true, reset=reset, out[0..14]=pc); 
 }
