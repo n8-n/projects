@@ -1,5 +1,6 @@
 
 (defpackage #:asm
-  (:use #:cl))
+  (:use #:cl)
+  (:export translate-dest))
 
 (in-package :asm)

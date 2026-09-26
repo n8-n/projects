@@ -13,3 +13,12 @@
                              (:file "main"))))
   ;; no build config, just load into sly
   )
+
+
+(asdf:defsystem #:assembler-test
+  :description "Unit tests for Hack assembler for Nand2Tetris"
+  :author "Nathan Flynn"
+  :depends-on (:asm
+               :fiveam)
+  :components ((:module "t"
+                :components ((:file "tests")))))
