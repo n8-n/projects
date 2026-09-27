@@ -1,15 +1,25 @@
 
 (in-package :asm)
 
+(defparameter +allowed-dest-strings+
+  '("ADM" "AD" "AM" "DM" "A" "D" "M")
+  "Sorted valid values for destination string.")
+
+(defparameter +comp-mappings+ (make-hash-table :test #'equalp)
+  "Mapping between comp string and binary representation.")
+
+(defparameter +jmp-mappings+ (make-hash-table :test #'equalp)
+  "Mapping between jmp string and binary representation.")
+
 (define-condition asm-syntax-error (error)
   ((message :initarg :message :reader message))
   (:report (lambda (condition stream)
              (format stream "SYNTAX ERROR: ~A~&" (message condition))))
   (:documentation "Signals error in provided ASM code."))
 
-(defparameter +allowed-dest-strings+
-  '("ADM" "AD" "AM" "DM" "A" "D" "M")
-  "Sorted valid values for destination string.")
+;;
+;; for splitting
+;; (uiop:split-string "AM=-D;JMP" :separator '(#\= #\;))
 
 (defun translate-dest (dest)
   (when (null dest)
@@ -23,9 +33,11 @@
                      '(#\A #\D #\M))))
       (format nil "~{~A~}" results))))
 
-
-(defparameter +comp-mappings+ (make-hash-table :test #'equalp)
-  "Mapping between comp string and binary representation.")
+(defun init-hash-table (list-mappings hash-table)
+  "Puts the values in LIST-MAPPINGS into HASH-TABLE. Each
+entry mapping is expected to be a lsit with two values."
+  (dolist (pair list-mappings)
+    (setf (gethash (first pair) hash-table) (second pair))))
 
 (defun init-comp-mappings ()
   (let ((list-mappings
@@ -57,13 +69,10 @@
             ("D&M" "000000")
             ("D|A" "010101")
             ("D|M" "010101"))))
-    (dolist (pair list-mappings)
-      (setf (gethash (first pair) +comp-mappings+) (second pair)))))
-
-(init-comp-mappings)
+    (init-hash-table list-mappings +comp-mappings+)))
 
 (defun translate-comp (comp)
-  "Translate comp string into 7 digit binary sequence (a flag plus 6 Cs)"
+  "Translate comp string into 7-digit binary sequence (a flag plus 6 Cs)"
   (let* ((is-m (find #\M comp))
          (a-flag (if is-m "1" "0"))
          (six-c (gethash comp +comp-mappings+)))
@@ -71,3 +80,28 @@
         (error 'asm-syntax-error
                :message (format nil "~A is not a valid compute string~%" comp))
         (concatenate 'string a-flag six-c))))
+
+(defun init-jmp-mappings ()
+  (let ((list-mappings
+          '(("JGT" "001")
+            ("JEQ" "010")
+            ("JGE" "011")
+            ("JLT" "100")
+            ("JNE" "101")
+            ("JLE" "110")
+            ("JMP" "111"))))
+    (init-hash-table list-mappings +jmp-mappings+)))
+
+(defun translate-jmp (jmp)
+  "Translate jmp string into 3-digit binary sequence."
+  (if (null jmp)
+      "000"
+      (let ((jmp-result (gethash jmp +jmp-mappings+)))
+        (if (null jmp-result)
+            (error 'asm-syntax-error
+                   :message (format nil "~A is not a valid jump string~%" jmp))
+            jmp-result))))
+
+;; initialisation functions
+(init-comp-mappings)
+(init-jmp-mappings)

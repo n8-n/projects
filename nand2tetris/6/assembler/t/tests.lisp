@@ -37,3 +37,14 @@
 (test unknown-comp-str
   (signals asm-syntax-error
     (translate-comp "foo")))
+
+(test translates-jmp-str
+  (is (equal "001" (translate-jmp "JGT")))
+  (is (equal "111" (translate-jmp "JMP"))))
+
+(test unknown-jmp-str
+  (signals asm-syntax-error
+    (translate-jmp "foo")))
+
+(test translates-null-str
+  (is (equal "000" (translate-jmp nil))))
