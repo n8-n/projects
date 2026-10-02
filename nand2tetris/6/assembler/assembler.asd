@@ -6,6 +6,7 @@
   :depends-on (:uiop)
   :components ((:module "src"
                 :pathname #P"src/"
+                :serial t
                 :components ((:file "package")
                              (:file "table")
                              (:file "code")

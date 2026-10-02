@@ -17,10 +17,6 @@
              (format stream "SYNTAX ERROR: ~A~&" (message condition))))
   (:documentation "Signals error in provided ASM code."))
 
-;;
-;; for splitting
-;; (uiop:split-string "AM=-D;JMP" :separator '(#\= #\;))
-
 (defun translate-dest (dest)
   (when (null dest)
     (return-from translate-dest "000"))
