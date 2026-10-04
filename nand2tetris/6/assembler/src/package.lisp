@@ -1,9 +1,12 @@
 
-(defpackage #:asm
+(defpackage #:hack-asm
   (:use #:cl)
   (:export translate-dest
            translate-comp
-           translate-jmp
-           asm-syntax-error))
+           translate-jump
+           asm-syntax-error
+           command-type
+           process-a-command
+           process-c-command))
 
-(in-package :asm)
+(in-package :hack-asm)

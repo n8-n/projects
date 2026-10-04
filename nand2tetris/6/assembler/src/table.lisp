@@ -1,5 +1,5 @@
 
-(in-package :asm)
+(in-package :hack-asm)
 
 (defclass symbol-table ()
   ((symbols

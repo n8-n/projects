@@ -1,5 +1,5 @@
 
-(in-package :asm)
+(in-package :hack-asm)
 
 (defparameter +allowed-dest-strings+
   '("ADM" "AD" "AM" "DM" "A" "D" "M")
@@ -88,7 +88,7 @@ entry mapping is expected to be a lsit with two values."
             ("JMP" "111"))))
     (init-hash-table list-mappings +jmp-mappings+)))
 
-(defun translate-jmp (jmp)
+(defun translate-jump (jmp)
   "Translate jmp string into 3-digit binary sequence."
   (if (null jmp)
       "000"
