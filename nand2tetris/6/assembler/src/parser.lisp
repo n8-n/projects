@@ -10,6 +10,11 @@
 ;; L = label 
 (deftype command () '(member :A :C :L))
 
+(defparameter *current-ram-address* 15)
+(defun next-ram-address ()
+  "Returns the next available RAM address."
+  (setf *current-ram-address* (+ *current-ram-address* 1)))
+
 (defun validate-file (file type)
   "If FILE is not a path and the type doesn't match the
 specified TYPE, then throw an error."
@@ -39,10 +44,6 @@ specified TYPE, then throw an error."
     (let ((first-2-chars (subseq line 0 2)))
       (equalp first-2-chars "//"))))
 
-(defun c-command-p (line)
-  "LINE is C command if line contains '=' or ';'."
-  (or (find #\; line) (find #\= line)))
-
 (defun a-command-p (line)
   "LINE is A command if first letter is '@'."
   (eq (char line 0) #\@))
@@ -60,9 +61,8 @@ If line is a comment or whitespace, return nil."
     (if (or (uiop:emptyp l) (comment-p l))
         NIL
         (cond ((a-command-p l) :A)
-              ((c-command-p l) :C)
               ((l-command-p l) :L)
-              (t NIL)))))
+              (t :C)))))
 
 (defun pad-binary (number &optional (max-len 15))
   "Pad a binary NUMBER with zeros until it is of length MAX-LEN."
@@ -71,17 +71,31 @@ If line is a comment or whitespace, return nil."
          (zeros (make-string num-zeros :initial-element #\0)))
     (concatenate 'string zeros number)))
 
+(defun get-memory-address-for-symbol (symbol)
+  "Returns the stored memory address for the symbol, if it
+exists. Else, add a new symbol table entry with the next
+available RAM address."
+  (let ((try-address (get-address *symbol-table* symbol)))
+    (if try-address
+        try-address
+        (let ((new-address (next-ram-address)))
+          (progn
+            (add-entry *symbol-table* symbol new-address)
+            new-address)))))
+
 (defun process-a-command (command)
   "Return binary value for an A commmand."
   (let* ((value (subseq command 1)) ; remove @ char
          (try-int (parse-integer value :junk-allowed t)))
-    ;; TODO: check for negative numbers
-    (if (null try-int)
-        'symbol
-        (let ((binary (write-to-string try-int :base 2)))
-          (if (> (length binary) 15)
-              (error "Provided address is longer than 15 bits: ~A" command)
-              (concatenate 'string "0" (pad-binary binary)))))))
+    (when (and try-int (< try-int 0))
+      (error "Address cannot be negative: ~A" command))
+    (let* ((address-int (if try-int
+                            try-int
+                            (get-memory-address-for-symbol value)))
+           (address (write-to-string address-int :base 2)))
+      (if (> (length address) 15)
+          (error "Provided address is longer than 15 bits: ~A" command)
+          (concatenate 'string "0" (pad-binary address))))))
 
 (defun split-c-command (command)
   "Splits a C COMMAND into a list of three parts: 'dest', 'comp', and 'jump'.
@@ -102,3 +116,9 @@ If a command doesn't have one of these fields, it will be null in the result."
           (comp (translate-comp (second split)))
           (jump (translate-jump (third split))))
       (concatenate 'string "111" comp dest jump))))
+
+(defun process-l-command (label pc)
+  "Create symbol table entry for the label."
+  ;; remove brackets from label
+  (let ((strip-label (subseq label 1 (- (length label) 1))))
+    (add-entry *symbol-table* strip-label pc)))

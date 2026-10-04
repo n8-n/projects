@@ -8,14 +8,33 @@
     (make-pathname :directory directory
                    :name name
                    :type "hack")))
-    
-(defun process-line (command)
+
+
+(defparameter *current-program-counter* 0
+  "Used to keep track of program counter number during first-pass
+processing of labels.")
+
+(defun process-labels (contents)
+  "First pass to process all labels."
+  (flet ((inc-pc ()
+           (setf *current-program-counter*
+                 (+ *current-program-counter* 1))))
+    (dolist (command contents)
+      (let ((type (command-type command)))
+        (case type
+          (:A (inc-pc))
+          (:C (inc-pc))
+          (:L (process-l-command command
+                                 *current-program-counter*)))))))
+
+
+(defun process-line (cmd)
   "Determine command type and send to correct function."
-  (let ((type (command-type command)))
+  (let* ((command (string-trim " " cmd))
+         (type (command-type command)))
     (case type
       (:A (process-a-command command))
-      (:C (process-c-command command))
-      (:L 'TODO))))
+      (:C (process-c-command command)))))
 
 ;; TODO: it's writing an extra newline at end of hack file
 (defun assemble (file &optional (out-file (hack-file-name file)))
@@ -26,5 +45,9 @@ create one based on input file name."
          (contents (read-asm-file in-file)))
     (if (null contents)
         (error "Error reading contents of ASM file: empty file")
-        (let ((results (mapcar #'process-line contents)))
-          (write-hack-file results out-file)))))
+        (progn
+          (process-labels contents)
+          (let ((results (mapcar #'process-line contents)))
+            (write-hack-file results out-file))))
+    (format t "Assembly complete.")
+    out-file))
