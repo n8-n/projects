@@ -1,6 +1,17 @@
 
 (in-package #:hack-asm)
 
+(defparameter *current-program-counter* 0
+  "Used to keep track of program counter number during first-pass
+processing of labels.")
+
+
+(defun init-assembler ()
+  "Run initialising functions for symbol table, code mappers etc."
+  (init-comp-mappings)
+  (init-jmp-mappings)
+  (add-default-symbols-to-table))
+
 (defun hack-file-name (filename)
   "Create a hack filename from the provided FILENAME."
   (let ((name (pathname-name filename))
@@ -8,11 +19,6 @@
     (make-pathname :directory directory
                    :name name
                    :type "hack")))
-
-
-(defparameter *current-program-counter* 0
-  "Used to keep track of program counter number during first-pass
-processing of labels.")
 
 (defun process-labels (contents)
   "First pass to process all labels."
@@ -41,6 +47,7 @@ processing of labels.")
   "Reads the provided ASM FILE and assembles contents into
 Hack binary code stored in OUT-FILE. If no OUT-FILE provided,
 create one based on input file name."
+  (init-assembler)
   (let* ((in-file (truename file))
          (contents (read-asm-file in-file)))
     (if (null contents)

@@ -15,6 +15,21 @@
   "Returns the next available RAM address."
   (setf *current-ram-address* (+ *current-ram-address* 1)))
 
+(defun add-default-symbols-to-table ()
+  "Add predefined symbols to *symbol-table*."
+  (flet ((add (s v) (add-entry *symbol-table* s v))
+         (r (n) (concatenate 'string "R"
+                             (write-to-string n))))
+    (add "SP" 0)
+    (add "LCL" 1)
+    (add "ARG" 2)
+    (add "THIS" 3)
+    (add "THAT" 4)
+    (add "SCREEN" 16384)
+    (add "KBD" 24576)
+    (loop for i from 0 to 15 do
+      (add (r i) i))))
+
 (defun validate-file (file type)
   "If FILE is not a path and the type doesn't match the
 specified TYPE, then throw an error."

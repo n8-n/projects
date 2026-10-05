@@ -98,6 +98,3 @@ entry mapping is expected to be a lsit with two values."
                    :message (format nil "~A is not a valid jump string~%" jmp))
             jmp-result))))
 
-;; initialisation functions
-(init-comp-mappings)
-(init-jmp-mappings)

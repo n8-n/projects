@@ -12,8 +12,7 @@
                              (:file "code")
                              (:file "parser")
                              (:file "main"))))
-  ;; no build config, just load into sly
-  )
+  :in-order-to ((asdf:test-op (asdf:test-op "assembler/test"))))
 
 (asdf:defsystem #:assembler/test
   :description "Unit tests for Hack assembler for Nand2Tetris"
@@ -21,4 +20,5 @@
   :depends-on (:assembler
                :fiveam)
   :components ((:module "t"
-                :components ((:file "tests")))))
+                :components ((:file "tests"))))
+  :perform (asdf:test-op (o c) (uiop:symbol-call :asm-test '#:run-tests)))
