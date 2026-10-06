@@ -12,6 +12,8 @@ processing of labels.")
   (init-jmp-mappings)
   (add-default-symbols-to-table))
 
+(init-assembler)
+
 (defun hack-file-name (filename)
   "Create a hack filename from the provided FILENAME."
   (let ((name (pathname-name filename))
@@ -47,7 +49,6 @@ processing of labels.")
   "Reads the provided ASM FILE and assembles contents into
 Hack binary code stored in OUT-FILE. If no OUT-FILE provided,
 create one based on input file name."
-  (init-assembler)
   (let* ((in-file (truename file))
          (contents (read-asm-file in-file)))
     (if (null contents)

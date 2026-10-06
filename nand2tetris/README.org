@@ -1,0 +1,8 @@
+* Introduction
+This folder contains code for the book "The Elements of Computing Systems", also known as Nand2Tetris.
+It contains example code downloaded from the Nand2Tetris website plus my own solutions for the
+different exercises.
+
+
+* Code Project Locations
+- Hack Assembler: 6/assembler/

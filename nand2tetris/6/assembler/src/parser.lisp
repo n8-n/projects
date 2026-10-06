@@ -48,10 +48,13 @@ specified TYPE, then throw an error."
   (with-open-file (f file :direction :output
                           :if-exists :supersede
                           :if-does-not-exist :create)
-    (dolist (line contents)
-      (when line
-        (write-line line f)))))
-
+    (let ((final-index (- (length contents) 1)))
+      (loop for line in contents
+            for i from 0 do
+              (when line
+                (if (= i final-index)
+                    (write-string line f)
+                    (write-line line f)))))))
 
 (defun comment-p (line)
   "Determines if the LINE is a comment."
