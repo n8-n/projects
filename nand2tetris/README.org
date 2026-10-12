@@ -5,4 +5,6 @@ different exercises.
 
 
 * Code Project Locations
-- Hack Assembler: 6/assembler/
+Code projects can be found in the exercises/ directory.
+- Ch. 6 Hack Assembler: assembler/
+- Ch. 7 & 8 VM translator: vm-translator/
