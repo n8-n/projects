@@ -12,6 +12,9 @@
                       :C_RETURN
                       :C_CALL))
 
+(defparameter +arithmetic-commands+
+  '("add" "sub" "neg" "eq" "gt" "lt" "and" "or" "not"))
+
 (define-condition vm-syntax-error (error)
   ((message :initarg :message :reader message))
   (:report (lambda (condition stream)
@@ -20,8 +23,30 @@
 
 ;;; commands to check command types
 ;; Expects command to be tokenised, i.e. list of words rather than raw string
+
+(defun valid-length-p (command length)
+  "Checks if the specified command has the expected number of non-comment tokens. 
+Also verifies that any extra tokens at the end are part of a comment."
+  (let ((tokens-len (length command)))
+    (if (< tokens-len length)
+        NIL
+        (let* ((token-tests
+                 (loop for i from 0 to (- length 1)
+                       for x in command
+                       collect (comment-p x)))
+               (tokens-are-comments
+                 (reduce (lambda (x y) (or x y)) token-tests)))
+          (if tokens-are-comments
+              NIL
+              (cond ((comment-p (nth length command)) T)
+                    ((= tokens-len length) T)
+                    (t NIL)))))))
+
+
 (defun arithmetic-p (command)
-  'todo)
+  ;; TODO - add valid length
+  (let ((operator (first command)))
+    (find operator +arithmetic-commands+ :test #'equalp)))
 
 (defun push-p (command)
   'todo)
@@ -47,10 +72,10 @@
 (defun call-p (command)
   'todo)
 
-(defun comment-p (line)
-  "Determines if the LINE is a comment."
-  (when (>= (length line) 2)
-    (let ((first-2-chars (subseq line 0 2)))
+(defun comment-p (s)
+  "Determines if the string S is a comment."
+  (when (>= (length s) 2)
+    (let ((first-2-chars (subseq s 0 2)))
       (equalp first-2-chars "//"))))
 
 (defun process-and-split-line (line)
@@ -74,7 +99,7 @@ COMMAND is a list of string tokens."
         ((return-p command) :C_RETURN)
         ((call-p command) :C_CALL)
         (t (error 'vm-syntax-error
-                  :message (format nil "Unknown command type ~A~%" command)))))
+                  :message (format nil "Unknown or malformed command: ~A~%" command)))))
 
 
 
