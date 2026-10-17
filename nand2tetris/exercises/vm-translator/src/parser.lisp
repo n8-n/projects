@@ -44,18 +44,23 @@ Also verifies that any extra tokens at the end are part of a comment."
 
 
 (defun arithmetic-p (command)
-  ;; TODO - add valid length
-  (let ((operator (first command)))
-    (find operator +arithmetic-commands+ :test #'equalp)))
+  (when (valid-length-p command 1)
+    (let ((operator (first command)))
+      (find operator +arithmetic-commands+ :test #'equalp))))
+
+(defun simple-verify-p (command keyword length)
+  "Verify that COMMAND begins with KEYWORD and is the expected LENGTH."
+  (when (valid-length-p command length)
+    (equalp (first command) keyword)))
 
 (defun push-p (command)
-  'todo)
+  (simple-verify-p command "push" 3))
 
 (defun pop-p (command)
-  'todo)
+  (simple-verify-p command "pop" 3))
 
 (defun label-p (command)
-  'todo)
+  (simple-verify-p command "label" 2))
 
 (defun goto-p (command)
   'todo)
@@ -88,18 +93,22 @@ returns the line as a list of string tokens."
 
 (defun get-command-type (command)
   "Returns a command type keyword for the specified COMMAND.
-COMMAND is a list of string tokens."
-  (cond ((arithmetic-p command) :C_ARITHMETIC)
-        ((push-p command) :C_PUSH)
-        ((pop-p command) :C_POP)
-        ((label-p command) :C_LABEL)
-        ((goto-p command) :C_GOTO)
-        ((if-p command) :C_IF)
-        ((function-p command) :C_FUNCTION)
-        ((return-p command) :C_RETURN)
-        ((call-p command) :C_CALL)
-        (t (error 'vm-syntax-error
-                  :message (format nil "Unknown or malformed command: ~A~%" command)))))
+COMMAND can be a list of string tokens or a string. If it's a string,
+split it with process-and-split-line function."
+  (let ((cmd (if (typep command 'string)
+                 (process-and-split-line command)
+                 command)))
+    (cond ((arithmetic-p cmd) :C_ARITHMETIC)
+          ((push-p cmd) :C_PUSH)
+          ((pop-p cmd) :C_POP)
+          ((label-p cmd) :C_LABEL)
+          ((goto-p cmd) :C_GOTO)
+          ((if-p cmd) :C_IF)
+          ((function-p cmd) :C_FUNCTION)
+          ((return-p cmd) :C_RETURN)
+          ((call-p cmd) :C_CALL)
+          (t (error 'vm-syntax-error
+                    :message (format nil "Unknown or malformed command: ~A~%" cmd))))))
 
 
 

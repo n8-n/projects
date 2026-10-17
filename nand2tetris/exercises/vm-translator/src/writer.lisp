@@ -34,7 +34,7 @@
 LINE is expected to be a single string. Returns a list of ASM string commands."
   (let ((command (process-and-split-line line)))
     (when command
-      (let ((type (get-command-type line)))
+      (let ((type (get-command-type command)))
         (case type
           (:C_ARITHMETIC (translate-arithmetic command))
           (:C_PUSH (translate-push command))
