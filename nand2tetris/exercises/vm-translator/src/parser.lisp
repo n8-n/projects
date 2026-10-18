@@ -110,5 +110,17 @@ split it with process-and-split-line function."
           (t (error 'vm-syntax-error
                     :message (format nil "Unknown or malformed command: ~A~%" cmd))))))
 
+(defun arg1 (command type)
+  "Return the first argument for most command types. For arithmetic types, return
+the command itself."
+  (cond ((eq type :C_RETURN)
+         (error "Cannot return arg1 for `return` command type"))
+        ((eq type :C_ARITHMETIC) (first command))
+        (t (second command))))
 
-
+(defun arg2 (command type)
+  "Return the second arg for certain command types."
+  (let ((supported-types '(:C_POP :C_PUSH :C_FUNCTION :C_CALL)))
+    (if (member type supported-types)
+        (third command)
+        (error "Cannot return arg2 for unsupported type ~A" type))))

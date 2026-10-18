@@ -30,3 +30,11 @@
   (is (equal :C_POP (get-command-type "pop pointer 0")))
   ;; todo: finish when other type checks finished
   )
+
+(test arg1
+  (is (equal "add" (arg1 '("add" "//comment") :C_ARITHMETIC)))
+  (is (equal "constant" (arg1 '("push" "constant" "12") :C_PUSH))))
+
+(test arg1-unsupported
+  (signals simple-error
+    (arg1 '("return") :C_RETURN)))

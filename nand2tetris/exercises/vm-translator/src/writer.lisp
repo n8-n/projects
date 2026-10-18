@@ -1,6 +1,40 @@
 
 (in-package #:translator)
 
+(defparameter +inc-stack+ '("@SP" "M=M+1")
+  "Commands to increment stack pointer.")
+
+(defparameter +dec-stack+ '("@SP" "M=M-1")
+  "Commands to decrement stack pointer.")
+
+(defparameter +sp-address+ '("@SP" "A=M")
+  "Get the address of the top of the stack.")
+
+(defparameter +pop-to-d+
+  (append +sp-address+ '("D=M") +dec-stack+)
+  "Commands to pop from top of stack to D register.")
+
+(defparameter +subtract+
+  (append +pop-to-d+ '("A=M" "M=M-D"))
+  "Commands to subtract y from x. 
+Defining it here because it is used in predicate checks as well. ")
+
+(defparameter +label-number+ 0)
+(defun new-label ()
+  "Create a new number to append to generated label tags."
+  (prog1
+      +label-number+
+    (setf +label-number+ (+ +label-number+ 1))))
+
+;; create function for equality checks
+;; need to generate labels and use jump commands
+
+(defparameter +arithmetic-mappings+
+  `(("add" ,(append +pop-to-d+ '("A=M" "M=M+D")))
+    ("sub" +subtract+)
+    ("neg" ,(append +sp-address+ '("!M")))
+    ("eq" ,(append +subtract+ ))))
+
 (defun translate-arithmetic (command)
   'todo)
 
