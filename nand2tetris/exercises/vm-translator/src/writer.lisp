@@ -14,29 +14,66 @@
   (append +sp-address+ '("D=M") +dec-stack+)
   "Commands to pop from top of stack to D register.")
 
-(defparameter +subtract+
-  (append +pop-to-d+ '("A=M" "M=M-D"))
-  "Commands to subtract y from x. 
-Defining it here because it is used in predicate checks as well. ")
-
-(defparameter +label-number+ 0)
-(defun new-label ()
-  "Create a new number to append to generated label tags."
-  (prog1
-      +label-number+
-    (setf +label-number+ (+ +label-number+ 1))))
-
-;; create function for equality checks
-;; need to generate labels and use jump commands
-
 (defparameter +arithmetic-mappings+
   `(("add" ,(append +pop-to-d+ '("A=M" "M=M+D")))
-    ("sub" +subtract+)
-    ("neg" ,(append +sp-address+ '("!M")))
-    ("eq" ,(append +subtract+ ))))
+    ("sub" ,(append +pop-to-d+ '("A=M" "M=M-D")))
+    ("neg" ,(append +sp-address+ '("-M")))
+    ("and" ,(append +pop-to-d+ '("M=D&M")))
+    ("or" ,(append +pop-to-d+ '("M=D|M")))
+    ("not" ,(append +sp-address+ '("M=!M"))))
+  "Mappings between function keyword and ASM commands.
+This is only for 'fixed' commands: for predicate commands, we'll need to
+dynamically generate at runtime.")
+
+(defparameter +predicates+ '("eq" "gt" "lt"))
+
+(defparameter +label-number+ 0)
+(defun new-label (base &optional number-override)
+  "Create a new label from the provide BASE string and the label
+counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
+  (let ((number (if number-override
+                    number-override
+                    (prog1
+                        +label-number+
+                      (setf +label-number+ (+ +label-number+ 1))))))
+    (format nil "~A~A" base number)))
+
+(defun generate-predicate (vm-cmd)
+  (flet ((cc (&rest sequence)
+           "Just a shorter concatenate function."
+           (apply #'concatenate 'string sequence)))
+    (let* ((asm-cmd (cond ((equalp vm-cmd "eq") "JEQ")
+                          ((equalp vm-cmd "gt") "JGT")
+                          ((equalp vm-cmd "lt") "JLT")
+                          (t (error "Unsupported predicate ~A" vm-cmd))))
+           (jump-cmd (cc "D;" asm-cmd))
+           (true-base (new-label (cc asm-cmd "_TRUE_")))
+           (end-base (new-label (cc asm-cmd "_END_")))
+           (at-true (cc "@" true-base))
+           (at-end (cc "@" end-base))
+           (true-label (cc "(" true-base ")"))
+           (end-label (cc "(" end-base ")")))
+      (append +pop-to-d+
+              (list "A=M"
+                    "M=M-D"
+                    "D=M"
+                    at-true
+                    jump-cmd)
+              +sp-address+
+              (list "M=0"
+                    at-end
+                    "0;JMP"
+                    true-label)
+              +sp-address+
+              (list "M=-1"
+                    end-label)))))
 
 (defun translate-arithmetic (command)
-  'todo)
+  (let* ((cmd (first command))
+         (assoc-result (assoc cmd +arithmetic-mappings+ :test #'equalp)))
+    (cond (assoc-result (second assoc-result))
+          ((member cmd +predicates+ :test #'equalp) (generate-predicate cmd))
+          (t (error "Unknown arithmetic command ~A" command)))))
 
 (defun translate-push (command)
   'todo)
