@@ -11,11 +11,15 @@
   "Get the address of the top of the stack.")
 
 (defparameter +pop-to-d+
-  (append +sp-address+ '("D=M") +dec-stack+)
+  (append +dec-stack+ '("A=M" "D=M"))
   "Commands to pop from top of stack to D register.")
 
 (defparameter +arithmetic-mappings+
-  `(("add" ,(append +pop-to-d+ '("A=M" "M=M+D")))
+  `(("add" ,(append +pop-to-d+
+                    +dec-stack+
+                    '("A=M" "M=D+M")
+                    +inc-stack+))
+    ;; TODO: some function to generate unary and binary function commands
     ("sub" ,(append +pop-to-d+ '("A=M" "M=M-D")))
     ("neg" ,(append +sp-address+ '("-M")))
     ("and" ,(append +pop-to-d+ '("M=D&M")))
@@ -54,19 +58,19 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
            (true-label (cc "(" true-base ")"))
            (end-label (cc "(" end-base ")")))
       (append +pop-to-d+
-              (list "A=M"
-                    "M=M-D"
-                    "D=M"
-                    at-true
-                    jump-cmd)
+              `("A=M"
+                "M=M-D"
+                "D=M"
+                ,at-true
+                ,jump-cmd)
               +sp-address+
-              (list "M=0"
-                    at-end
-                    "0;JMP"
-                    true-label)
+              `("M=0"
+                ,at-end
+                "0;JMP"
+                ,true-label)
               +sp-address+
-              (list "M=-1"
-                    end-label)))))
+              `("M=-1"
+                ,end-label)))))
 
 (defun translate-arithmetic (command)
   (let* ((cmd (first command))
@@ -76,7 +80,15 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
           (t (error "Unknown arithmetic command ~A" command)))))
 
 (defun translate-push (command)
-  'todo)
+  (let ((a1 (arg1 command :C_PUSH))
+        (a2 (arg2 command :C_PUSH)))
+    (cond ((equalp a1 "constant")
+           (append `(,(concatenate 'string "@" a2)
+                     "D=A")
+                   +sp-address+
+                   '("M=D")
+                   +inc-stack+))
+          (t 'todo))))
 
 (defun translate-pop (command)
   'todo)
@@ -99,8 +111,7 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
 (defun translate-call (command)
   'todo)
 
-
-(defun translate-command (line)
+(defun translate-vm-command (line)
   "Translates the VM command into the equivalent assembly commands.
 LINE is expected to be a single string. Returns a list of ASM string commands."
   (let ((command (process-and-split-line line)))
@@ -118,3 +129,11 @@ LINE is expected to be a single string. Returns a list of ASM string commands."
           (:C_CALL (translate-call command))
           (t (error "Cannot translate unknown command type: ~A~%" line)))))))
 
+
+;; testing functions
+(defun print-cmd-list (l)
+  (dolist (i l) (format t "~A~%" i)))
+
+(defun translate-list (vm-cmd-list)
+  (reduce #'append
+          (mapcar #'translate-vm-command vm-cmd-list)))
