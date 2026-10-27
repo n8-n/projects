@@ -11,20 +11,16 @@
   "Get the address of the top of the stack.")
 
 (defparameter +pop-to-d+
-  (append +dec-stack+ '("A=M" "D=M"))
+  (cmd-list +dec-stack+ "A=M" "D=M")
   "Commands to pop from top of stack to D register.")
 
 (defparameter +arithmetic-mappings+
-  `(("add" ,(append +pop-to-d+
-                    +dec-stack+
-                    '("A=M" "M=D+M")
-                    +inc-stack+))
-    ;; TODO: some function to generate unary and binary function commands
-    ("sub" ,(append +pop-to-d+ '("A=M" "M=M-D")))
-    ("neg" ,(append +sp-address+ '("-M")))
-    ("and" ,(append +pop-to-d+ '("M=D&M")))
-    ("or" ,(append +pop-to-d+ '("M=D|M")))
-    ("not" ,(append +sp-address+ '("M=!M"))))
+  `(("add" ,(binary-function "M=D+M"))
+    ("sub" ,(binary-function "M=D-M"))
+    ("neg" ,(unary-function "M=-M"))
+    ("and" ,(binary-function "M=D&M"))
+    ("or" ,(binary-function "M=D|M"))
+    ("not" ,(unary-function "M=!M")))
   "Mappings between function keyword and ASM commands.
 This is only for 'fixed' commands: for predicate commands, we'll need to
 dynamically generate at runtime.")
@@ -42,9 +38,37 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
                       (setf +label-number+ (+ +label-number+ 1))))))
     (format nil "~A~A" base number)))
 
+(defun cmd-list (&rest cmds)
+  "Create a list of commands. Values in CMDS can be a string or a
+list of strings. Function will flatten sublists."
+  (flet ((wrap (x)
+           (if (listp x)
+               x
+               (list x))))
+    (flet ((wrap-append (x1 x2)
+             (append (wrap x1)
+                     (wrap x2))))
+      (reduce #'wrap-append cmds))))
+
+(defun binary-function (alu-cmd)
+  "Generate ASM commands to perform the specified ALU command on
+the top two stack values."
+  (cmd-list +pop-to-d+
+            +dec-stack+
+            "A=M"
+            alu-cmd
+            +inc-stack+))
+
+(defun unary-function (alu-cmd)
+  "Generate ASM commands to perform the specified ALU command on
+the top stack value."
+  (cmd-list +dec-stack+
+            "A=M"
+            alu-cmd
+            +inc-stack+))
+
 (defun generate-predicate (vm-cmd)
   (flet ((cc (&rest sequence)
-           "Just a shorter concatenate function."
            (apply #'concatenate 'string sequence)))
     (let* ((asm-cmd (cond ((equalp vm-cmd "eq") "JEQ")
                           ((equalp vm-cmd "gt") "JGT")
@@ -57,20 +81,20 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
            (at-end (cc "@" end-base))
            (true-label (cc "(" true-base ")"))
            (end-label (cc "(" end-base ")")))
-      (append +pop-to-d+
-              `("A=M"
+      (cmd-list +pop-to-d+
+                "A=M"
                 "M=M-D"
                 "D=M"
-                ,at-true
-                ,jump-cmd)
-              +sp-address+
-              `("M=0"
-                ,at-end
+                at-true
+                jump-cmd
+                +sp-address+
+                "M=0"
+                at-end
                 "0;JMP"
-                ,true-label)
-              +sp-address+
-              `("M=-1"
-                ,end-label)))))
+                true-label
+                +sp-address+
+                "M=-1"
+                end-label))))
 
 (defun translate-arithmetic (command)
   (let* ((cmd (first command))
@@ -83,11 +107,11 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
   (let ((a1 (arg1 command :C_PUSH))
         (a2 (arg2 command :C_PUSH)))
     (cond ((equalp a1 "constant")
-           (append `(,(concatenate 'string "@" a2)
-                     "D=A")
-                   +sp-address+
-                   '("M=D")
-                   +inc-stack+))
+           (cmd-list (concatenate 'string "@" a2)
+                     "D=A"
+                     +sp-address+
+                     "M=D"
+                     +inc-stack+))
           (t 'todo))))
 
 (defun translate-pop (command)
@@ -137,3 +161,6 @@ LINE is expected to be a single string. Returns a list of ASM string commands."
 (defun translate-list (vm-cmd-list)
   (reduce #'append
           (mapcar #'translate-vm-command vm-cmd-list)))
+
+(defun translate-print (&rest vm-cmd-list)
+  (print-cmd-list (translate-list vm-cmd-list)))
