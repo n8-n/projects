@@ -2,6 +2,15 @@
 (in-package #:translator)
 
 
+(defparameter +inc-stack+ '("@SP" "M=M+1")
+  "Commands to increment stack pointer.")
+
+(defparameter +dec-stack+ '("@SP" "M=M-1")
+  "Commands to decrement stack pointer.")
+
+(defparameter +sp-address+ '("@SP" "A=M")
+  "Get the address of the top of the stack.")
+
 (defun cmd-list (&rest cmds)
   "Create a list of commands. Values in CMDS can be a string or a
 list of strings. Function will flatten sublists."
@@ -13,6 +22,16 @@ list of strings. Function will flatten sublists."
              (append (wrap x1)
                      (wrap x2))))
       (reduce #'wrap-append cmds))))
+
+(defparameter +pop-to-d+
+  (cmd-list +dec-stack+ "A=M" "D=M")
+  "Commands to pop from top of stack to D register.")
+
+(defparameter +push-d+
+  (cmd-list +sp-address+
+            "M=D"
+            +inc-stack+)
+  "Commands to push from register D to the stack.")
 
 (defun binary-function (alu-cmd)
   "Generate ASM commands to perform the specified ALU command on
@@ -30,25 +49,6 @@ the top stack value."
             "A=M"
             alu-cmd
             +inc-stack+))
-
-(defparameter +inc-stack+ '("@SP" "M=M+1")
-  "Commands to increment stack pointer.")
-
-(defparameter +dec-stack+ '("@SP" "M=M-1")
-  "Commands to decrement stack pointer.")
-
-(defparameter +sp-address+ '("@SP" "A=M")
-  "Get the address of the top of the stack.")
-
-(defparameter +pop-to-d+
-  (cmd-list +dec-stack+ "A=M" "D=M")
-  "Commands to pop from top of stack to D register.")
-
-(defparameter +push-d+
-  (cmd-list +sp-address+
-            "M=D"
-            +inc-stack+)
-  "Commands to push from register D to the stack.")
 
 (defparameter +arithmetic-alist+
   `(("add" ,(binary-function "M=D+M"))
@@ -94,7 +94,7 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
   (assoc value alist :test #'equalp))
 
 (defun generate-predicate (vm-cmd)
-  (let* ((asm-cmd (car (a-find vm-cmd +predicate-alist+)))
+  (let* ((asm-cmd (second (a-find vm-cmd +predicate-alist+)))
          (jump-cmd (cc "D;" asm-cmd))
          (true-base (new-label (cc asm-cmd "_TRUE_")))
          (end-base (new-label (cc asm-cmd "_END_")))
@@ -127,11 +127,19 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
 (defun segment-address (pointer i)
   "Return ASM instructions to get the address at the POINTER
 address plus I."
-  (cmd-list (cc "@" i)
-            "D=A"
-            (cc "@" pointer)
-            "A=M"
-            "A=D+A"))
+  (if (equalp i "0")
+      (cc "@" pointer)
+      (cmd-list (cc "@" i)
+                "D=A"
+                (cc "@" pointer)
+                "A=M"
+                "A=D+A")))
+
+(defun pointer-name (number)
+  "Translate pointer number into either this or that."
+  (cond ((equalp number "0") "@THIS")
+        ((equalp number "1") "@THAT")
+        (t (error "Cannot use invalid pointer number: ~A" number))))
 
 (defun translate-push (command)
   (let* ((a1 (arg1 command :C_PUSH))
@@ -143,6 +151,9 @@ address plus I."
           (segment (cmd-list (segment-address segment a2)
                              "D=M"
                              +push-d+))
+          ((equalp a1 "pointer") (cmd-list (pointer-name a2)
+                                           "D=M"
+                                           +push-d+))
           (t 'todo))))
 
 (defun translate-pop (command)
@@ -157,6 +168,9 @@ address plus I."
                              "@R13"
                              "A=M"
                              "M=D"))
+          ((equalp a1 "pointer") (cmd-list +pop-to-d+
+                                           (pointer-name a2)
+                                           "M=D"))
           (t 'todo))))
 
 (defun translate-label (command)
@@ -195,6 +209,18 @@ LINE is expected to be a single string. Returns a list of ASM string commands."
           (:C_CALL (translate-call command))
           (t (error "Cannot translate unknown command type: ~A~%" line)))))))
 
+(defun write-asm-file (input-files output)
+  "Write the VM INPUT-FILES to the specified OUTPUT file."
+  (with-open-file (f output :direction :output
+                            :if-exists :supersede
+                            :if-does-not-exist :create)
+    (dolist (vm-file input-files)
+      (let ((contents (read-vm-file vm-file)))
+        (dolist (line contents)
+          (let ((cmds (translate-vm-command line)))
+            (dolist (asm-cmd cmds)
+              (when asm-cmd
+                (write-line asm-cmd f)))))))))
 
 ;; testing functions
 (defun print-cmd-list (l)

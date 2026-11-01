@@ -124,3 +124,7 @@ the command itself."
     (if (member type supported-types)
         (third command)
         (error "Cannot return arg2 for unsupported type ~A" type))))
+
+(defun read-vm-file (file)
+  "Reads the VM file into a list of lines to be processed."
+  (uiop:read-file-lines file))
