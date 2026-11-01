@@ -52,7 +52,7 @@ the top stack value."
 
 (defparameter +arithmetic-alist+
   `(("add" ,(binary-function "M=D+M"))
-    ("sub" ,(binary-function "M=D-M"))
+    ("sub" ,(binary-function "M=M-D"))
     ("neg" ,(unary-function "M=-M"))
     ("and" ,(binary-function "M=D&M"))
     ("or" ,(binary-function "M=D|M"))
@@ -103,6 +103,7 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
          (true-label (cc "(" true-base ")"))
          (end-label (cc "(" end-base ")")))
     (cmd-list +pop-to-d+
+              +dec-stack+
               "A=M"
               "M=M-D"
               "D=M"
@@ -115,7 +116,8 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
               true-label
               +sp-address+
               "M=-1"
-              end-label)))
+              end-label
+              +inc-stack+)))
 
 (defun translate-arithmetic (command)
   (let* ((cmd (first command))
