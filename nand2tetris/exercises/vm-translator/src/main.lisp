@@ -28,6 +28,8 @@ directory, use the directory name."
 (defun translate (input &optional (output (asm-file-name input)))
   "Translate the INPUT VM files into an ASM OUTPUT file. INPUT can be a single .vm file
 or else a directory, in which case it will process all .vm files."
+  (unless (equalp "asm" (pathname-type output))
+    (error "Output file must be of type .ASM"))
   (let ((files (get-files input)))
     (write-asm-file files output)
     (format t "Translation of VM input files is complete.")))

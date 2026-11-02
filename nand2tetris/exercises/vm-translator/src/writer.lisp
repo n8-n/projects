@@ -1,6 +1,8 @@
 
 (in-package #:translator)
 
+(defparameter *current-file* "NONE"
+  "Name of current VM file being translated.")
 
 (defparameter +inc-stack+ '("@SP" "M=M+1")
   "Commands to increment stack pointer.")
@@ -28,27 +30,18 @@ list of strings. Function will flatten sublists."
   "Commands to pop from top of stack to D register.")
 
 (defparameter +push-d+
-  (cmd-list +sp-address+
-            "M=D"
-            +inc-stack+)
+  (cmd-list +sp-address+ "M=D" +inc-stack+)
   "Commands to push from register D to the stack.")
 
 (defun binary-function (alu-cmd)
   "Generate ASM commands to perform the specified ALU command on
 the top two stack values."
-  (cmd-list +pop-to-d+
-            +dec-stack+
-            "A=M"
-            alu-cmd
-            +inc-stack+))
+  (cmd-list +pop-to-d+ +dec-stack+ "A=M" alu-cmd +inc-stack+))
 
 (defun unary-function (alu-cmd)
   "Generate ASM commands to perform the specified ALU command on
 the top stack value."
-  (cmd-list +dec-stack+
-            "A=M"
-            alu-cmd
-            +inc-stack+))
+  (cmd-list +dec-stack+ "A=M" alu-cmd +inc-stack+))
 
 (defparameter +arithmetic-alist+
   `(("add" ,(binary-function "M=D+M"))
@@ -102,22 +95,9 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
          (at-end (cc "@" end-base))
          (true-label (cc "(" true-base ")"))
          (end-label (cc "(" end-base ")")))
-    (cmd-list +pop-to-d+
-              +dec-stack+
-              "A=M"
-              "M=M-D"
-              "D=M"
-              at-true
-              jump-cmd
-              +sp-address+
-              "M=0"
-              at-end
-              "0;JMP"
-              true-label
-              +sp-address+
-              "M=-1"
-              end-label
-              +inc-stack+)))
+    (cmd-list +pop-to-d+ +dec-stack+ "A=M" "M=M-D" "D=M" at-true
+              jump-cmd +sp-address+ "M=0" at-end "0;JMP" true-label
+              +sp-address+ "M=-1" end-label +inc-stack+)))
 
 (defun translate-arithmetic (command)
   (let* ((cmd (first command))
@@ -130,12 +110,8 @@ counter +label-number+. User NUMBER-OVERRIDE to provide fixed label number."
   "Return ASM instructions to get the address at the POINTER
 address plus I."
   (if (equalp i "0")
-      (cc "@" pointer)
-      (cmd-list (cc "@" i)
-                "D=A"
-                (cc "@" pointer)
-                "A=M"
-                "A=D+A")))
+      (cmd-list (cc "@" pointer) "A=M")
+      (cmd-list (cc "@" i) "D=A" (cc "@" pointer) "A=M" "A=D+A")))
 
 (defun pointer-name (number)
   "Translate pointer number into either this or that."
@@ -143,37 +119,44 @@ address plus I."
         ((equalp number "1") "@THAT")
         (t (error "Cannot use invalid pointer number: ~A" number))))
 
+(defun temp-address (number)
+  "Return the address for temp + NUMBER."
+  (format nil "@~A" (+ 5 (parse-integer number))))
+
+(defun static-name (number &optional (filename *current-file*))
+  "Return name for static variable."
+  (format nil "@~A" (cc filename "." number)))
+
 (defun translate-push (command)
   (let* ((a1 (arg1 command :C_PUSH))
          (a2 (arg2 command :C_PUSH))
          (segment (second (a-find a1 +segment-alist+))))
-    (cond ((equalp a1 "constant") (cmd-list (cc "@" a2)
-                                            "D=A"
-                                            +push-d+))
-          (segment (cmd-list (segment-address segment a2)
-                             "D=M"
-                             +push-d+))
-          ((equalp a1 "pointer") (cmd-list (pointer-name a2)
-                                           "D=M"
-                                           +push-d+))
-          (t 'todo))))
+    (cond ((equalp a1 "constant")
+           (cmd-list (cc "@" a2) "D=A" +push-d+))
+          (segment
+           (cmd-list (segment-address segment a2) "D=M" +push-d+))
+          ((equalp a1 "pointer")
+           (cmd-list (pointer-name a2) "D=M" +push-d+))
+          ((equalp a1 "temp")
+           (cmd-list (temp-address a2) "D=M" +push-d+))
+          ((equalp a1 "static")
+           (cmd-list (static-name a2) "D=M" +push-d+))
+          (t (error "Cannot push to unknown segment type ~A" a1)))))
 
 (defun translate-pop (command)
   (let* ((a1 (arg1 command :C_PUSH))
          (a2 (arg2 command :C_PUSH))
          (segment (second (a-find a1 +segment-alist+))))
-    (cond (segment (cmd-list (segment-address segment a2)
-                             "D=A"
-                             "@R13"
-                             "M=D"
-                             +pop-to-d+
-                             "@R13"
-                             "A=M"
-                             "M=D"))
-          ((equalp a1 "pointer") (cmd-list +pop-to-d+
-                                           (pointer-name a2)
-                                           "M=D"))
-          (t 'todo))))
+    (cond (segment
+           (cmd-list (segment-address segment a2) "D=A" "@R13" "M=D"
+                     +pop-to-d+ "@R13" "A=M" "M=D"))
+          ((equalp a1 "pointer")
+           (cmd-list +pop-to-d+ (pointer-name a2) "M=D"))
+          ((equalp a1 "temp")
+           (cmd-list +pop-to-d+ (temp-address a2) "M=D"))
+          ((equalp a1 "static")
+           (cmd-list +pop-to-d+ (static-name a2) "M=D"))
+          (t (error "Cannot pop to unknown segment type ~A" a1)))))
 
 (defun translate-label (command)
   'todo)
@@ -217,7 +200,9 @@ LINE is expected to be a single string. Returns a list of ASM string commands."
                             :if-exists :supersede
                             :if-does-not-exist :create)
     (dolist (vm-file input-files)
-      (let ((contents (read-vm-file vm-file)))
+      (let ((contents (read-vm-file vm-file))
+            (in-progress-file (pathname-name vm-file)))
+        (setf *current-file* in-progress-file)
         (dolist (line contents)
           (let ((cmds (translate-vm-command line)))
             (dolist (asm-cmd cmds)
