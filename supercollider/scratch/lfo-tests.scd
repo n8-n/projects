@@ -55,8 +55,30 @@ Pbindef(\melody,
 )
 
 
-Pbindef(\melody).stop;
-Pbindf
+
+
+/// ------------------------------------
+/// Using Select Ugen to switch LFO on/off
+
+(
+SynthDef(\lfotest, {
+	arg freq=440, atk=0.02, rel=0.7, amp=0.3, lfoOn=0;
+	var env, sig, lfo;
+	lfo = Select.kr(lfoOn, [DC.kr(0), SinOsc.kr(20).bipolar(200)]);
+	env = Env.perc(atk, rel).kr(doneAction: Done.freeSelf);
+	sig = VarSaw.ar(freq) * env;
+	sig = BPF.ar(sig, 600 + lfo);
+	sig = sig * amp;
+	Out.ar(0, sig!2);
+}).add;
+
+)
+
+
+
+x = Synth(\lfotest, [freq: rrand(200, 400), atk:4, rel:6]);
+x.set(\lfoOn, 1);
+x.set(\lfoOn, 0);
 
 
 
