@@ -1,0 +1,3 @@
+* Misc Supercollider Notes
+** Disable inputs
+Server.local.options.numInputBusChannels_(0)

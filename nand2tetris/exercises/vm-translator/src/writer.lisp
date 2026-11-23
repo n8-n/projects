@@ -4,6 +4,11 @@
 (defparameter *current-file* "NONE"
   "Name of current VM file being translated.")
 
+(defparameter *function-call-stack* '("init")
+  "Stack that keeps track of current function name.
+Push new function name when we enter a new function, then
+pop on a return.")
+
 (defparameter +inc-stack+ '("@SP" "M=M+1")
   "Commands to increment stack pointer.")
 
@@ -158,11 +163,26 @@ address plus I."
            (cmd-list +pop-to-d+ (static-name a2) "M=D"))
           (t (error "Cannot pop to unknown segment type ~A" a1)))))
 
+(defun make-function-label (label &key new
+                                    (function (first *function-call-stack*)))
+  "Create a label using user-defined LABEL string plus FUNCTION. If no 
+value is provided for FUNCTION, take the first element of the 
+*function-call-stack* variable. Use NEW variable to indicate if it's a
+new label: e.g. new = (thisLabel), not new = @thisLabel"
+  ;; TODO: label character validation
+  (let ((base-name (cc function "$" label)))
+    (if new
+        (cc "(" base-name ")")
+        (cc "@" base-name))))
+
 (defun translate-label (command)
-  'todo)
+  (let ((name (arg1 command :C_LABEL)))
+    (list (make-function-label name :new t))))
 
 (defun translate-goto (command)
-  'todo)
+  (let* ((name (arg1 command :C_GOTO))
+         (function (make-function-label name)))
+    (cmd-list function "0;JMP")))
 
 (defun translate-if (command)
   'todo)

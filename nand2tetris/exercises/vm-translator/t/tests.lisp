@@ -28,6 +28,9 @@
   (is (equal :C_ARITHMETIC (get-command-type '("not"))))
   (is (equal :C_PUSH (get-command-type "push constant 1")))
   (is (equal :C_POP (get-command-type "pop pointer 0")))
+  (is (equal :C_LABEL (get-command-type "label hello")))
+  (is (equal :C_GOTO (get-command-type "goto hello")))
+  (is (equal :C_IF (get-command-type "if-goto hello")))
   ;; todo: finish when other type checks finished
   )
 

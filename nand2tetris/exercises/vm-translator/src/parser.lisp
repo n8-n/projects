@@ -63,10 +63,10 @@ Also verifies that any extra tokens at the end are part of a comment."
   (simple-verify-p command "label" 2))
 
 (defun goto-p (command)
-  'todo)
+  (simple-verify-p command "goto" 2))
 
 (defun if-p (command)
-  'todo)
+  (simple-verify-p command "if-goto" 2))
 
 (defun function-p (command)
   'todo)
