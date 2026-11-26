@@ -216,6 +216,12 @@ LINE is expected to be a single string. Returns a list of ASM string commands."
           (:C_CALL (translate-call command))
           (t (error "Cannot translate unknown command type: ~A~%" line)))))))
 
+(defun init-commands ()
+  "Get a list of VM commands to initialise the VM program.
+Sets Stack Pointer to 256, then calls Sys.init function."
+  (cmd-list "@256" "D=A" "@SP" "M=D"
+            (translate-vm-command "call Sys.init 0")))
+
 (defun write-asm-file (input-files output)
   "Write the VM INPUT-FILES to the specified OUTPUT file."
   (with-open-file (f output :direction :output

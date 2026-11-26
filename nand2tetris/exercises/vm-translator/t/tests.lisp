@@ -31,7 +31,9 @@
   (is (equal :C_LABEL (get-command-type "label hello")))
   (is (equal :C_GOTO (get-command-type "goto hello")))
   (is (equal :C_IF (get-command-type "if-goto hello")))
-  ;; todo: finish when other type checks finished
+  (is (equal :C_FUNCTION (get-command-type "function foo 2")))
+  (is (equal :C_CALL (get-command-type "call foo 3")))
+  (is (equal :C_RETURN (get-command-type "return")))
   )
 
 (test arg1

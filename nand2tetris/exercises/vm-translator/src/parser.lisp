@@ -69,13 +69,13 @@ Also verifies that any extra tokens at the end are part of a comment."
   (simple-verify-p command "if-goto" 2))
 
 (defun function-p (command)
-  'todo)
+  (simple-verify-p command "function" 3))
 
 (defun return-p (command)
-  'todo)
+  (simple-verify-p command "return" 1))
 
 (defun call-p (command)
-  'todo)
+  (simple-verify-p command "call" 3))
 
 (defun comment-p (s)
   "Determines if the string S is a comment."
