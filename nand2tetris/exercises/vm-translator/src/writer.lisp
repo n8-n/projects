@@ -181,11 +181,13 @@ new label: e.g. new = (thisLabel), not new = @thisLabel"
 
 (defun translate-goto (command)
   (let* ((name (arg1 command :C_GOTO))
-         (function (make-function-label name)))
-    (cmd-list function "0;JMP")))
+         (label (make-function-label name)))
+    (cmd-list label "0;JMP")))
 
 (defun translate-if (command)
-  'todo)
+  (let* ((name (arg1 command :C_GOTO))
+         (label (make-function-label name)))
+    (cmd-list +pop-to-d+ label "D;JNE")))
 
 (defun translate-function (command)
   'todo)

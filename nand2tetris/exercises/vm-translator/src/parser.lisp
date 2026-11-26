@@ -86,10 +86,11 @@ Also verifies that any extra tokens at the end are part of a comment."
 (defun process-and-split-line (line)
   "Returns nil if line is whitespace or a comment. Otherwise,
 returns the line as a list of string tokens."
-  (let ((l (string-trim " " line)))
+  (let ((l (string-trim '(#\Space #\Tab) line)))
     (if (or (uiop:emptyp l) (comment-p l))
         nil
-        (uiop:split-string l))))
+        (remove-if (lambda (x) (equalp "" x))
+                   (uiop:split-string l)))))
 
 (defun get-command-type (command)
   "Returns a command type keyword for the specified COMMAND.
